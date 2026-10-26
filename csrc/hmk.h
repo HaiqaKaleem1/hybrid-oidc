@@ -42,7 +42,7 @@ int hmk_wrap(const uint8_t ss[HMK_SS_LEN],
 
 /*
  * Unwrap. Constant time with respect to every input: runs derive/keystream/
- * tag regardless of validity, full-scan tag compare, branchless conditional
+ *tag regardless of validity, full-scan tag compare, branchless conditional
  * move of the candidate key into mk_out (zeroed unless the tag verifies).
  * Returns 0 iff the wrap authenticates.
  */
