@@ -1,3 +1,18 @@
 .toolchain/
 .gopath/
 .gocache/
+
+# C build artifacts
+csrc/*.o
+csrc/*.a
+csrc/hmk_selftest
+csrc/hmk_timing
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.toc
+
+# binaries
+/hmktui
