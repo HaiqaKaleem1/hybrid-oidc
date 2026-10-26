@@ -33,9 +33,8 @@ static inline int hmk_ct_memcmp(const uint8_t *a, const uint8_t *b, size_t n)
     size_t i;
     for (i = 0; i < n; i++)
         d |= (uint8_t)(a[i] ^ b[i]);
-    return (int)hmk_ct_is_zero_u8(d) ^ 1; /* 0 if equal */
+    return (int)hmk_ct_is_zero_u8(d) ^ 1; /* 0 iff equal */
 }
-
 
 /*
  * Conditional move: if sel == 1, dst <- src; else dst unchanged.
