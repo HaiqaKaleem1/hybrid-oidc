@@ -33,4 +33,6 @@ asm: libhmk.a
 	objdump -d --no-show-raw-insn libhmk.a | sed -n '/<hmk_unwrap>:/,/^$$/p'
 
 clean:
-	rm -f $(OBRS)T’ÊWB
+	rm -f $(OBJS) libhmk.a $(BINARIES)
+
+.PHONY: all test timing asm clean
