@@ -17,8 +17,8 @@ and is hardened against side channels **by measurement, not assertion**.
   │  K_f = ss_c · ss_p mod p      F_p combiner      [number theory]     │
   │  u   = M · (ss_c‖ss_p)        M = T³ over F₂    [linear algebra]    │
   │  RK  = HMAC(K_f, u) → kek‖kmac                    [extractor]       │
-  │  ct  = mk ⊕ KS   tag = HMAC(kmac, n‖ct‖aad)      [no pre-existing   │
-  │           cipher encrypts plaintext — all low-level C]              │
+  │  ct  = mk ⊕ KS   tag = HMAC(kmac, n‖ct‖aad)  [no pre-existing       │
+  │          cipher encrypts plaintext — all low-level C]               │
   │  unwrap: full-scan compare, branchless cmov, fixed work per call    │
   └──────────────────────────────┬───────────────────────────────────┘
                                  ▼
@@ -158,7 +158,7 @@ Full `hmk_unwrap` (medians of **400 interleaved rounds × 512 calls**, rotating
 case order per TVLA discipline): correct **8.57 µs** · mismatch@0 **8.57 µs** ·
 mismatch@31 **8.58 µs** · wrong secret **8.57 µs** — spread **0.2 %**.
 
-**TVLA-style Welch *t*-test** (correct vs each failure, threshold \|t\| < 4.5):
+**TVLA-style Welch *t*-test** (correct vs each failure, threshold |t| < 4.5):
 
 | comparison | \|t\| | verdict |
 |---|---|---|
@@ -166,9 +166,9 @@ mismatch@31 **8.58 µs** · wrong secret **8.57 µs** — spread **0.2 %**.
 | correct vs mismatch@31 | 0.53 | PASS |
 | correct vs wrong secret | 1.06 | PASS |
 
-Worst \|t\| = **1.25 → no detectable timing leak**. `TestHMKUnwrapConstantTime`
+Worst |t| = **1.25 → no detectable timing leak**. `TestHMKUnwrapConstantTime`
 fails the suite if medians ever spread beyond 2×. (Fun fact: measuring the
-cases in *fixed* order falsely flagged \|t\| = 8.96 — that was thermal drift,
+cases in *fixed* order falsely flagged |t| = 8.96 — that was thermal drift,
 not code; interleaving the stimulus, as real TVLA requires, fixed it.)
 
 ## Video storyboard (recommended ~3 min)
