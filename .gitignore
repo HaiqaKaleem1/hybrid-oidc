@@ -18,7 +18,7 @@ paper/*.toc
 /hmktui
 
 # local env
-cs.env
+.env
 .vercel
 node_modules/
 
