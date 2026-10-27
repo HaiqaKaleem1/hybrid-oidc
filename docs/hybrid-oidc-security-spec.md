@@ -228,7 +228,7 @@ or sender-unreplay). Our construction fixes this by optionally including the TLS
 |---|---|---|
 | G1/E1 RNDL: pq-break ⇒ classical sessions safe | Thm 1, Cor. E1 | TestE1ClassicalHoldsUnderPQBreak |
 | G1/E2: classical-break ⇒ hybrid still safe | Thm 1, Cor. E2 | TestE2HybridKeySurvivesClassicalBreak |
-| G2 if-either IND-CCA | Thm 1 (Games 0–3) | TestCompositeKEMCiphertextTamperIndist |
+| G2 if-either IND-CCA | Thm 1 (Games 0–3) | TestCompositeKEMTamperIndist |
 | G3 conjunction acceptance | §3/Alg 4 | TestHybridVerifyRejectsEitherHalfMissing |
 | G4 weakest-link = ES256 | Thm 2 (fresh-message + malleation cases) | TestSignatureForgeryRequiresFreshECDSA |
 | G1↔G3 channel-binding corollary | Thm 3 | TestChannelBoundJWTRejectsReplay |
