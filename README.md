@@ -18,9 +18,9 @@ and is hardened against side channels **by measurement, not assertion**.
   │  u   = M · (ss_c‖ss_p)        M = T³ over F₂    [linear algebra]    │
   │  RK  = HMAC(K_f, u) → kek‖kmac                    [extractor]       │
   │  ct  = mk ⊕ KS   tag = HMAC(kmac, n‖ct‖aad)  [no pre-existing       │
-  │          cipher encrypts plaintext — all low-level C]               │
   │  unwrap: full-scan compare, branchless cmov, fixed work per call    │
-  └──────────────────────────────┬───────────────────────────────────┘
+  │          cipher encrypts plaintext — all low-level C]               │
+  └──────────────────────────────┬───────────────────────────────────────┘
                                  ▼
   ┌ hybrid JWT (Alg 4) + channel binding ───────────────── G3/G4 ──────┐
   │  conjunction acceptance · weakest-link bound · replay rejection     │
