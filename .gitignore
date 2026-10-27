@@ -18,9 +18,9 @@ paper/*.toc
 /hmktui
 
 # workspace-only helpers (merge snapshots, dev diagnostics, smoke tests)
-site/.app.*
-site/.index.*
-site/.net.*
+site/.index.head.html
+site/.net.head.html
+site/.net.cur.html
 /*.html
 /verify.js
 /net-screenshot.js
