@@ -197,11 +197,11 @@ async function makeWrap(s) {
   const ks = await hmacSha256(kek, concat(enc("hmk/v1/ks"), s.nonce));
   s.ct = new Uint8Array(32);
   for (let i = 0; i < 32; i++) s.ct[i] = s.mk[i] ^ ks[i];
-  s.tag = await hmacSha256(kmac, concat(enc("hmk/v1/tag"), s.nonce, s.ct, AAD));
+  s.tag = await hmacSha256(s.kmac, concat(enc("hmk/v1/tag"), s.nonce, s.ct, AAD));
   return s;
 }
 async function tagCheck(s, ct) {
-  const calc = await hmacSha256(kmac, concat(enc("hmk/v1/tag"), s.nonce, ct, AAD));
+  const calc = await hmacSha256(s.kmac, concat(enc("hmk/v1/tag"), s.nonce, ct, AAD));
   return ctMemcmp(calc, s.tag);
 }
 
@@ -277,7 +277,7 @@ const steps = [
     logLine("bad", `   ct bit ${bit} ^= 1      → ${ok1 ? "ACCEPTED (!)" : "REJECTED — tag mismatch"}`);
     const badTag = new Uint8Array(s.tag);
     badTag[Math.floor(Math.random() * 32)] ^= 0xff;
-    const calc = await hmacSha256(kmac, concat(enc("hmk/v1/tag"), s.nonce, s.ct, AAD));
+    const calc = await hmacSha256(s.kmac, concat(enc("hmk/v1/tag"), s.nonce, s.ct, AAD));
     const ok2 = ctMemcmp(calc, badTag);
     await sleep(200);
     logLine("bad", `   forged tag byte       → ${ok2 ? "ACCEPTED (!)" : "REJECTED — full-scan compare"}`);
@@ -1189,7 +1189,7 @@ async function netSend(senderId, receiverId, attack = "none") {
   haltPacket();
   clearNodeHighlights();
   netLog.innerHTML = "";
-  netLog.scrollTop = 0; netVerdict.className = "verdict";
+  netVerdict.className = "verdict";
   netSetVerdict("ok", "");
 
   const sender = COMPUTERS.find((n) => n.id === senderId);
