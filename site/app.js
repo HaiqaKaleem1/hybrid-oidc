@@ -1118,11 +1118,11 @@ async function computeSeal(s) {
   const ks = await hmacSha256(kek, concat(enc("hmk/v1/ks"), s.nonce));
   s.ct = new Uint8Array(32);
   for (let i = 0; i < 32; i++) s.ct[i] = s.mk[i] ^ ks[i];
-  s.tag = await hmacSha256(kmac, concat(enc("hmk/v1/tag"), s.nonce, s.ct, AAD));
+  s.tag = await hmacSha256(s.kmac, concat(enc("hmk/v1/tag"), s.nonce, s.ct, AAD));
   return s;
 }
 async function verifyTag(s, ct, tag, nonce) {
-  const calc = await hmacSha256(kmac, concat(enc("hmk/v1/tag"), nonce, ct, AAD));
+  const calc = await hmacSha256(s.kmac, concat(enc("hmk/v1/tag"), nonce, ct, AAD));
   return ctMemcmp(calc, tag);
 }
 
@@ -1297,7 +1297,7 @@ async function netSend(senderId, receiverId, attack = "none") {
     finalTag = new Uint8Array(cap.tag);
     attackLabel = "replay with original nonce · the sniffed frame (nonce " + hex16(cap.nonce) + "…) resubmitted byte-for-byte";
   } else if (attack === "eavesdrop") {
-    attackLabel = "eavesdrop only · attacker reads the wire (ct=" + hex16(s.ct).slice(0, 16) + "…·tag=" + hex16(s.tag).slice(0, 16) + "…) but cannot open ct without K_f";
+    attackLabel = "eavesdrop only · attacker reads the wire (ct=" + hex16(s.ct).slice(0, 16) + "…" + "·tag=" + hex16(s.tag).slice(0, 16) + "…) but cannot open ct without K_f";
   } else if (attack === "mitmreroute") {
     const newNonce = randBytes(16);
     finalNonce = newNonce;
@@ -1441,7 +1441,7 @@ async function netSend(senderId, receiverId, attack = "none") {
         netLine("dim", t() + " why: a MAC authenticates content, not freshness — freshness comes from the receiver's one-time nonce window");
         netLine("dim", t() + " why: without a second accepted encryption under this nonce the keystream never repeats (HMAC-DRBG-style: 1 nonce → 1 keystream)");
       } else {
-        const calc = await hmacSh256(s.kmac, concat(enc("hmk/v1/tag"), finalNonce, finalCt, AAD));
+        const calc = await hmacSha256(s.kmac, concat(enc("hmk/v1/tag"), finalNonce, finalCt, AAD));
         netLine("bad", t() + " REJECTED — recalculated tag " + hex16(calc).slice(0, 16) + "… ≠ " + hex16(finalTag).slice(0, 16) + "…");
 
         const why = {
