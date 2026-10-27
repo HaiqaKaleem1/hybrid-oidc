@@ -1,2 +1,146 @@
-<!-- source manifests: site/.b is the committed index seed; -->
-<!-- site/.net.html is the 05-network section; build-site.js splices them. -->
+<section id="network" class="panel reveal">
+  <h2><span class="num">05</span> The network — full LAN, real computers, every attack</h2>
+  <p class="lead">A network of real computers connected through visible LAN gateways (switches and routers). Pick any sender and any receiver, press <strong>Send a sealed message</strong>, and watch the HMK-1 record travel across the wires through the gateways. Then open the <strong>attack drawer</strong> — there are fourteen attacks including bit-flip, tag forgery, single-half guess, double-half guess, replay, replay-old-nonce, eavesdrop, MITM reroute, keystream reuse, nonce reuse, chopped/lengthened ct, tag truncation, timing side-channel probe, and classical-only/PQ-only downgrade. Every attack fails for the same reason the construction proves it must.</p>
+  <div class="net-telemetry" id="netTelemetry">
+    <div class="tel"><span class="tel-k">frames on wire</span><span class="tel-v" id="tFrames">0</span></div>
+    <div class="tel"><span class="tel-k">bytes carried</span><span class="tel-v" id="tBytes">0</span></div>
+    <div class="tel"><span class="tel-k">hops traversed</span><span class="tel-v" id="tHops">0</span></div>
+    <div class="tel"><span class="tel-k">attacks blocked</span><span class="tel-v ok" id="tBlocked">0</span></div>
+    <div class="tel"><span class="tel-k">seal / verify</span><span class="tel-v" id="tLatency">&mdash; / &mdash; &micro;s</span></div>
+    <div class="tel"><span class="tel-k">session key</span><span class="tel-v" id="tSession">&mdash;</span></div>
+  </div>
+  <div class="net-wrap"><div class="net-stage-wrap">
+    <svg class="net-canvas" id="netCanvas" viewBox="0 0 1280 660" preserveAspectRatio="xMidYMid meet" aria-label="network simulation">
+      <defs>
+        <radialGradient id="ngAlice" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#34d399" stop-opacity="0.9"/><stop offset="100%" stop-color="#059669" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ngBob" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#60a5fa" stop-opacity="0.9"/><stop offset="100%" stop-color="#2563eb" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ngCarol" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#a78bfa" stop-opacity="0.85"/><stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ngDave" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#f472b6" stop-opacity="0.85"/><stop offset="100%" stop-color="#db2777" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ngEve" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#fbbf24" stop-opacity="0.85"/><stop offset="100%" stop-color="#d97706" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ngHome" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#4fd6be" stop-opacity="0.9"/><stop offset="100%" stop-color="#0d9488" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ngAttRed" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#f87171" stop-opacity="0.95"/><stop offset="100%" stop-color="#dc2626" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ngAttPurple" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#c084fc" stop-opacity="0.9"/><stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ngAttOrange" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#fb923c" stop-opacity="0.9"/><stop offset="100%" stop-color="#c2410c" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ngAttCyan" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#22d3ee" stop-opacity="0.9"/><stop offset="100%" stop-color="#0891b2" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ngBotnet" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#a78bfa" stop-opacity="0.85"/><stop offset="100%" stop-color="#4c1d95" stop-opacity="0"/></radialGradient>
+        <linearGradient id="gwGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1e2a44"/><stop offset="100%" stop-color="#0e1626"/></linearGradient>
+        <filter id="netGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="softShadow"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/></filter>
+        <filter id="computerShadow"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.55"/></filter>
+      </defs>
+      <rect width="100%" height="100%" fill="#070b12"/>
+      <g id="links" stroke="#ffffff16" stroke-width="2" stroke-linecap="round"></g>
+      <g id="gateways"></g>
+      <g id="packetGroup" opacity="0" pointer-events="none" filter="url(#netGlow)"><circle r="9" fill="#4fd6be" opacity="0.9"/><circle r="14" fill="none" stroke="#4fd6be" stroke-width="1.2" opacity="0.5"/></g>
+      <g id="packetGroupBad" opacity="0" pointer-events="none" filter="url(#netGlow)"><circle r="9" fill="#f87171" opacity="0.9"/></g>
+      <g id="packetGroupGold" opacity="0" pointer-events="none" filter="url(#netGlow)"><circle r="9" fill="#fbbf24" opacity="0.9"/></g>
+      <g id="nodes"></g>
+      <g transform="translate(640,30)"><rect x="-330" y="-22" width="660" height="26" rx="13" fill="#0a101c" stroke="#27395a" stroke-width="1" filter="url(#softShadow)"/><text x="0" y="1" text-anchor="middle" fill="#8494ad" font-family="monospace" font-size="10.5" letter-spacing="1.2">NETWORK · 6 ENDPOINT COMPUTERS · HOME GATEWAY · 5 LAN GATEWAYS · 5 ATTACKER NODES · HMK-1 SEALED RECORDS</text></g>
+      <g transform="translate(40,620)"><rect x="-240" y="-34" width="480" height="42" rx="10" fill="#0a101c" stroke="#27395a" stroke-width="1" filter="url(#softShadow)"/><text x="-230" y="-20" fill="#8494ad" font-family="monospace" font-size="9.5" letter-spacing="1">● sender · ● receiver · ● gateway · ● packet · ● attack packet · ● replay packet</text><circle cx="-170" cy="-2" r="5" fill="#4fd6be"/><circle cx="-120" cy="-2" r="5" fill="#f87171"/><circle cx="-70" cy="-2" r="5" fill="#fbbf24"/><rect x="-210" y="-5" width="8" height="3" rx="1" fill="#27395a" stroke="#4fd6be" stroke-width="0.8"/><rect x="-160" y="-5" width="8" height="3" rx="1" fill="#27395a" stroke="#f87171" stroke-width="0.8"/><rect x="-110" y="-5" width="8" height="3" rx="1" fill="#27395a" stroke="#fbbf24" stroke-width="0.8"/></g>
+    </svg>
+  </div>
+  <div class="net-meta">
+    <div class="net-route">
+      <span class="meta-k">route &middot; shortest path over the LAN graph</span>
+      <div class="route-chips" id="routeChips"><span class="chip idle">pick a sender and a receiver</span></div>
+    </div>
+    <div class="net-frame">
+      <span class="meta-k">wire frame &middot; 16 B nonce &middot; 32 B ct &middot; 32 B tag</span>
+      <div class="frame-bar">
+        <div class="fseg nonce"><b>nonce</b><span id="frameNonce">&mdash;</span></div>
+        <div class="fseg ct"><b>ct</b><span id="frameCt">&mdash;</span></div>
+        <div class="fseg tag"><b>tag</b><span id="frameTag">&mdash;</span></div>
+      </div>
+      <div class="frame-hex" id="frameHex">the sealed record appears here the moment the sender seals it</div>
+    </div>
+  </div>
+  <div class="net-controls">
+    <div class="net-row">
+      <div class="pick-group"><label class="pick-label">SENDER (computer)</label><select id="senderSel" class="net-select"></select></div>
+      <div class="pick-group"><label class="pick-label">RECEIVER (computer)</label><select id="receiverSel" class="net-select"></select></div>
+      <button class="btn primary glow" id="btnSendMsg">▶ Send a sealed message</button>
+      <button class="btn" id="btnRandSend">🎲 random send</button>
+    </div>
+    <div class="attack-drawer">
+      <button class="btn attack-toggle" id="btnAttackToggle">⚔ Open attack drawer (14 attacks)</button>
+      <div class="attack-drawer-inner" id="attackDrawer">
+        <div class="attack-grid">
+          <label class="attack-opt"><input type="radio" name="attack" value="none" checked><span class="attack-radio"></span><span class="attack-name">No attack — honest send</span><span class="attack-desc">sealed record arrives intact</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="bitflip"><span class="attack-radio"></span><span class="attack-name">Bit-flip on ciphertext</span><span class="attack-desc">flip one byte of ct in transit</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="tagforge"><span class="attack-radio"></span><span class="attack-name">Forge the tag with zeros</span><span class="attack-desc">submit 32 zero bytes as tag</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="halfguess"><span class="attack-radio"></span><span class="attack-name">Guess only one KEM half</span><span class="attack-desc">derive K_f from a fake half</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="doublehalf"><span class="attack-radio"></span><span class="attack-name">Guess both KEM halves</span><span class="attack-desc">brute-force a 256-bit key</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="replay"><span class="attack-radio"></span><span class="attack-name">Replay a captured record</span><span class="attack-desc">resend an old sealed record</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="replayoldnonce"><span class="attack-radio"></span><span class="attack-name">Replay with old nonce</span><span class="attack-desc">reuse the original nonce</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="eavesdrop"><span class="attack-radio"></span><span class="attack-name">Eavesdrop (passive)</span><span class="attack-desc">read the wire, cannot open ct</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="mitmreroute"><span class="attack-radio"></span><span class="attack-name">MITM reroute</span><span class="attack-desc">intercept and redirect the packet</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="keystreamreuse"><span class="attack-radio"></span><span class="attack-name">Keystream reuse</span><span class="attack-desc">reuse the same nonce+keystream</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="cttrunc"><span class="attack-radio"></span><span class="attack-name">Chopped ciphertext</span><span class="attack-desc">truncate ct to 16 bytes</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="tagtrunc"><span class="attack-radio"></span><span class="attack-name">Truncated tag</span><span class="attack-desc">submit 16-byte prefix of tag</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="timingprobe"><span class="attack-radio"></span><span class="attack-name">Timing side-channel probe</span><span class="attack-desc">measure untimely reject (fails)</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="downclassical"><span class="attack-radio"></span><span class="attack-name">Classical-only downgrade</span><span class="attack-desc">try with only the classical half</span></label>
+          <label class="attack-opt"><input type="radio" name="attack" value="downpq"><span class="attack-radio"></span><span class="attack-name">PQ-only downgrade</span><span class="attack-desc">try with only the PQ half</span></label>
+        </div>
+        <button class="btn danger" id="btnLaunchAttack" disabled>⚔ Launch this attack</button>
+      </div>
+    </div>
+  </div>
+  </div>
+  <div class="net-extra">
+    <div class="roster">
+      <span class="meta-k">device roster &middot; addressing</span>
+      <div class="roster-grid">
+        <div class="roster-col">
+          <h4>endpoints</h4>
+          <div class="roster-item"><b>alice</b><span>10.0.1.10</span><i>laptop</i></div>
+          <div class="roster-item"><b>bob</b><span>10.0.1.20</span><i>workstation</i></div>
+          <div class="roster-item"><b>carol</b><span>10.0.2.10</span><i>server</i></div>
+          <div class="roster-item"><b>dave</b><span>10.0.30.10</span><i>phone</i></div>
+          <div class="roster-item"><b>eve</b><span>10.0.9.1</span><i>router</i></div>
+          <div class="roster-item"><b>home</b><span>10.0.0.1</span><i>home gateway</i></div>
+        </div>
+        <div class="roster-col">
+          <h4>lan gateways</h4>
+          <div class="roster-item"><b>SW-1</b><span>10.0.1.1</span><i>switch &middot; alice&ndash;bob</i></div>
+          <div class="roster-item"><b>SW-2</b><span>10.0.2.1</span><i>switch &middot; alice&ndash;carol</i></div>
+          <div class="roster-item"><b>RT-1</b><span>10.0.10.1</span><i>router &middot; bob&ndash;eve</i></div>
+          <div class="roster-item"><b>RT-2</b><span>10.0.20.1</span><i>router &middot; carol&ndash;eve</i></div>
+          <div class="roster-item"><b>AP-1</b><span>10.0.30.1</span><i>access point &middot; dave&ndash;eve</i></div>
+        </div>
+        <div class="roster-col">
+          <h4>adversaries on the wire</h4>
+          <div class="roster-item bad"><b>Mallory</b><span>MITM</span><i>reroutes frames</i></div>
+          <div class="roster-item bad"><b>Eve</b><span>eavesdrop</span><i>reads the wire</i></div>
+          <div class="roster-item bad"><b>Oscar</b><span>offline brute</span><i>guesses K<sub>f</sub></i></div>
+          <div class="roster-item bad"><b>Trent</b><span>compromised CA</span><i>grafts halves</i></div>
+          <div class="roster-item bad"><b>Botnet</b><span>cluster</span><i>floods / replays</i></div>
+        </div>
+      </div>
+    </div>
+    <div class="attack-matrix">
+      <div class="mx-head"><span class="meta-k">attack matrix &middot; 14 attacks &times; outcome</span><span class="mx-count" id="mxCount">0 / 14 run</span></div>
+      <div class="mx-grid" id="mxGrid">
+        <div class="mx" data-atk="bitflip"><b>bit-flip</b><span id="mx-bitflip">pending</span></div>
+        <div class="mx" data-atk="tagforge"><b>tag forge</b><span id="mx-tagforge">pending</span></div>
+        <div class="mx" data-atk="halfguess"><b>1-half guess</b><span id="mx-halfguess">pending</span></div>
+        <div class="mx" data-atk="doublehalf"><b>2-half guess</b><span id="mx-doublehalf">pending</span></div>
+        <div class="mx" data-atk="replay"><b>replay</b><span id="mx-replay">pending</span></div>
+        <div class="mx" data-atk="replayoldnonce"><b>replay old nonce</b><span id="mx-replayoldnonce">pending</span></div>
+        <div class="mx" data-atk="eavesdrop"><b>eavesdrop</b><span id="mx-eavesdrop">pending</span></div>
+        <div class="mx" data-atk="mitmreroute"><b>MITM reroute</b><span id="mx-mitmreroute">pending</span></div>
+        <div class="mx" data-atk="keystreamreuse"><b>keystream reuse</b><span id="mx-keystreamreuse">pending</span></div>
+        <div class="mx" data-atk="cttrunc"><b>chopped ct</b><span id="mx-cttrunc">pending</span></div>
+        <div class="mx" data-atk="tagtrunc"><b>truncated tag</b><span id="mx-tagtrunc">pending</span></div>
+        <div class="mx" data-atk="timingprobe"><b>timing probe</b><span id="mx-timingprobe">pending</span></div>
+        <div class="mx" data-atk="downclassical"><b>classical downgrade</b><span id="mx-downclassical">pending</span></div>
+        <div class="mx" data-atk="downpq"><b>PQ downgrade</b><span id="mx-downpq">pending</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="net-log-wrap">
+    <div class="term"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title" style="margin-left:14px">network log — live transmission & attack results</span><span class="verdict" id="netVerdict"></span></div>
+      <div class="term-body" id="netLog"><div class="tl dim">network ready · 6 endpoint computers · home gateway · 5 LAN gateways · 5 attacker nodes · pick sender/receiver, send a message, then launch one of 14 attacks</div></div>
+    </div>
+  </div>
+  <div class="net-note"><strong>How to read this:</strong> every sealed record is <code>ct = mk ⊕ HMAC(kek, LAB_KS‖nonce)</code> plus <code>tag = HMAC(kmac, LAB_TAG‖nonce‖ct‖aad)</code>, with <code>K_f = ss_c·ss_p mod p</code> and <code>u = M·(ss_c‖ss_p)</code>. The receiver rejects any record whose tag does not verify — and the tag cannot be forged without <code>K_f</code>, which needs <em>both</em> KEM halves. Tampering the ct, forging the tag, guessing one or both halves, replaying, reusing keystream, truncating ct or tag, side-channel probing, or downgrading to one half — all rejected by the same construction.</div>
+</section>
