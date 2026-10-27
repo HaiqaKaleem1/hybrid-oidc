@@ -31,3 +31,8 @@ site/.net.cur.html
 /test-*.js
 /test-*.html
 /check-net-page.js
+
+# local env
+.env
+.vercel
+node_modules/
