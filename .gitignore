@@ -16,3 +16,18 @@ paper/*.toc
 
 # binaries
 /hmktui
+
+# workspace-only helpers (merge snapshots, dev diagnostics, smoke tests)
+site/.app.*
+site/.index.*
+site/.net.*
+/*.html
+/verify.js
+/net-screenshot.js
+/merge-app.js
+/isolate*.js
+/smoke*.js
+/diag*.js
+/test-*.js
+/test-*.html
+/check-net-page.js
