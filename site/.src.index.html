@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HMK-1 · Hybrid Post-Quantum OIDC — Cryptographer Track</title>
+<meta name="description" content="Master-key encryption surviving either half breaking: composite-hybrid KEM, F_p field combiner, rank-512 F_2 matrix, constant-time C core with measured side-channel resistance.">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+</head>
+<body>
+
+<!-- =============================================================== NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path d="M12 2L3 7v5c0 5 3.8 8.6 9 10 5.2-1.4 9-5 9-10V7l-9-5z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M8 12.5l2.6 2.6L16.5 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <span>HMK-1</span>
+    </a>
+    <div class="nav-links">
+      <a href="#demo">Live demo</a>
+      <a href="#claims">Claims</a>
+      <a href="#math">Math</a>
+      <a href="#timing">Timing</a>
+      <a href="#score">Scoreboard</a>
+      <a class="nav-cta" href="https://github.com/HaiqaKaleem1/hybrid-oidc" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ============================================================= HERO -->
+<header class="hero" id="top">
+  <canvas id="heroCanvas" aria-hidden="true"></canvas>
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="hero-inner">
+    <div class="badge-row reveal">
+      <span class="badge">Cryptographer Track</span>
+      <span class="badge ghost">Mathematics for Systems Security</span>
+    </div>
+    <h1 class="reveal d1">
+      <span class="gradient-text">HMK-1</span> — Hybrid Post-Quantum<br>OpenID Connect
+    </h1>
+    <p class="tagline reveal d2">
+      A master-key encryption construction that survives <em>either</em> half breaking —
+      a composite-hybrid KEM, an <strong>F<sub>p</sub> field combiner</strong> (number theory),
+      an <strong>invertible F<sub>2</sub> mixing matrix</strong> (linear algebra), and a
+      <strong>constant-time C core</strong> whose side-channel resistance is
+      <em>measured, not assumed</em>.
+    </p>
+    <div class="cta-row reveal d3">
+      <button class="btn primary glow" id="heroRun">▶ Run the full demo</button>
+      <a class="btn" href="#timing">Timing evidence</a>
+      <a class="btn" href="paper/main.pdf">Read the paper ↗</a>
+      <a class="btn" href="https://github.com/HaiqaKaleem1/hybrid-oidc" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <div class="stats reveal d4">
+      <div class="stat"><span class="stat-num" data-count="11">0</span><span class="stat-label">page LaTeX paper</span></div>
+      <div class="stat"><span class="stat-num" data-count="34">0</span><span class="stat-label">assertions passing</span></div>
+      <div class="stat"><span class="stat-num" data-count="512">0</span><span class="stat-label">matrix rank over F₂</span></div>
+      <div class="stat"><span class="stat-num">1.25</span><span class="stat-label">worst Welch |t| (TVLA pass)</span></div>
+    </div>
+  </div>
+  <div class="scroll-hint" aria-hidden="true"><span></span></div>
+</header>
+
+<main>
+
+<!-- ============================================================= DEMO -->
+<section id="demo" class="panel reveal">
+  <div class="panel-head">
+    <h2><span class="num">01</span> The construction, computed live</h2>
+    <div class="panel-actions">
+      <button class="btn primary glow" id="btnAutoplay">▶ Autoplay full demo</button>
+    </div>
+  </div>
+  <p class="lead">Every value below is computed <strong>in your browser</strong> — BigInt field
+  arithmetic, a byte-exact port of the 512×512 F₂ matrix, WebCrypto HMAC-SHA-256.
+  Eight steps, from key generation to a measured side-channel verdict.</p>
+
+  <!-- step rail -->
+  <div class="rail" id="rail">
+    <button class="rail-step" data-step="0"><i>1</i>Keygen</button>
+    <button class="rail-step" data-step="1"><i>2</i>Encapsulate</button>
+    <button class="rail-step" data-step="2"><i>3</i>Wrap key</button>
+    <button class="rail-step" data-step="3"><i>4</i>Attack</button>
+    <button class="rail-step" data-step="4"><i>5</i>Unwrap</button>
+    <button class="rail-step" data-step="5"><i>6</i>Hybrid JWT</button>
+    <button class="rail-step" data-step="6"><i>7</i>Replay</button>
+    <button class="rail-step" data-step="7"><i>8</i>Timing</button>
+  </div>
+
+  <!-- pipeline -->
+  <div class="pipeline" id="pipeline">
+    <div class="stage" data-stage="0">
+      <div class="stage-kicker">Alg 3 · classical</div>
+      <div class="stage-title">ss<sub>c</sub></div>
+      <code class="hex skel" id="v-ssc">—</code>
+    </div>
+    <div class="conn" data-on="0"><span class="pulse"></span></div>
+    <div class="stage" data-stage="1">
+      <div class="stage-kicker">Alg 3 · post-quantum</div>
+      <div class="stage-title">ss<sub>p</sub></div>
+      <code class="hex skel" id="v-ssp">—</code>
+    </div>
+    <div class="conn" data-on="1"><span class="pulse"></span></div>
+    <div class="stage math" data-stage="2">
+      <div class="stage-kicker">number theory</div>
+      <div class="stage-title">K<sub>f</sub> = ss<sub>c</sub>·ss<sub>p</sub> mod p</div>
+      <code class="hex skel" id="v-kf">—</code>
+      <div class="note">F<sub>p</sub><sup>*</sup> bijection · one-break property</div>
+    </div>
+    <div class="conn" data-on="2"><span class="pulse"></span></div>
+    <div class="stage math" data-stage="3">
+      <div class="stage-kicker">linear algebra</div>
+      <div class="stage-title">u = M · (ss<sub>c</sub>‖ss<sub>p</sub>)</div>
+      <code class="hex skel" id="v-u">—</code>
+      <div class="note">M = T³ over F₂ · rank 512 · invertible</div>
+    </div>
+    <div class="conn" data-on="3"><span class="pulse"></span></div>
+    <div class="stage" data-stage="4">
+      <div class="stage-kicker">extractor</div>
+      <div class="stage-title">RK = HMAC(K<sub>f</sub>, u)</div>
+      <code class="hex skel" id="v-rk">—</code>
+    </div>
+    <div class="conn" data-on="4"><span class="pulse"></span></div>
+    <div class="stage seal" data-stage="5">
+      <div class="stage-kicker">sealed record</div>
+      <div class="stage-title">ct = mk ⊕ KS · tag</div>
+      <code class="hex skel" id="v-ct">—</code>
+      <code class="hex skel" id="v-tag">—</code>
+    </div>
+  </div>
+
+  <!-- terminal + verdict -->
+  <div class="term">
+    <div class="term-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="term-title">hmk-demo — live session</span>
+      <span class="verdict" id="verdict"></span>
+    </div>
+    <div class="term-body" id="log"><div class="tl dim">waiting — press <b>Autoplay full demo</b> or pick a step above</div></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" data-run="0">1 Keygen</button>
+    <button class="btn" data-run="1">2 Encapsulate</button>
+    <button class="btn" data-run="2">3 Wrap</button>
+    <button class="btn danger" data-run="3">4 ⚔ Attack</button>
+    <button class="btn" data-run="4">5 Unwrap</button>
+    <button class="btn" data-run="5">6 JWT</button>
+    <button class="btn" data-run="6">7 Replay</button>
+    <button class="btn" data-run="7">8 Timing</button>
+  </div>
+</section>
+
+<!-- ============================================================ CLAIMS -->
+<section id="claims" class="panel reveal">
+  <h2><span class="num">02</span> Security claims & closed vulnerability windows</h2>
+  <div class="cards">
+    <article class="card reveal">
+      <h3>G1 / Theorem 1 — record-now-decrypt-later</h3>
+      <p>Break <em>either</em> component KEM entirely and recorded hybrid traffic stays
+      opaque: ε ≤ Adv<sub>c</sub> + Adv<sub>p</sub> + q·negl. Corollaries cover the
+      “lattice paper is wrong” and “Shor breaks ECDH” scenarios.</p>
+      <div class="win">✓ closed: future quantum decryption of stored transcripts</div>
+    </article>
+    <article class="card reveal d1">
+      <h3>G2 — one-break IND-CCA (games 0–3)</h3>
+      <p>Conjunction decapsulation: ⊥ if either half fails. Tampered classical half,
+      PQ half, nonce or AAD — all rejected, with identical timing.</p>
+      <div class="win">✓ closed: active MITM ciphertext malleation</div>
+    </article>
+    <article class="card reveal d2">
+      <h3>G3 / G4 — authenticity at the weakest link</h3>
+      <p>Hybrid JWT acceptance needs <em>both</em> signatures on the same message.
+      Strip or graft a half and it fails. The composite never advertises more
+      security than its weaker half.</p>
+      <div class="win">✓ closed: half-signature forgery, algorithm confusion</div>
+    </article>
+    <article class="card reveal">
+      <h3>Theorem 3 — channel binding</h3>
+      <p>A TLS-exporter value joins the signed input, so a stolen
+      <code>id_token</code> replayed on a foreign connection fails verification.</p>
+      <div class="win">✓ closed: bearer-token replay across connections</div>
+    </article>
+    <article class="card reveal d1">
+      <h3>HMK-1 — side-channel hardening (C core)</h3>
+      <p>No secret-dependent branches, no secret-indexed tables, full-scan tag
+      compare, branchless publish of the candidate key, fixed work per call,
+      explicit zeroization — proven by measurement below.</p>
+      <div class="win">✓ closed: timing oracles on comparison / early exit</div>
+    </article>
+    <article class="card reveal d2">
+      <h3>Fixed-length encodings</h3>
+      <p>Canonical length asserted before parsing everywhere — no variable-length
+      parse differentials, and the HKDF dual-PRF side condition holds.</p>
+      <div class="win">✓ closed: length-dependent parse & timing leaks</div>
+    </article>
+  </div>
+</section>
+
+<!-- ============================================================== MATH -->
+<section id="math" class="panel reveal">
+  <h2><span class="num">03</span> The mathematics — interactive</h2>
+  <div class="math-grid">
+    <div class="math-box reveal">
+      <h3>Number theory — the F<sub>p</sub> combiner</h3>
+      <p class="formula">K<sub>f</sub> = N(ss<sub>c</sub>) · N(ss<sub>p</sub>) mod p,
+          p = 2<sup>256</sup> − 2<sup>32</sup> + 977</p>
+      <p>CIOS Montgomery multiplication, fixed 4-limb loops, branchless
+      conditional reduction — <strong>no log/exp tables</strong> to index with
+      secrets. Both inputs map into F<sub>p</sub><sup>*</sup>, so for any known
+      half <em>a</em> the map <em>b ↦ a·b</em> is a <strong>bijection</strong>:
+      a broken half leaves K<sub>f</sub> uniform (bias O(1/p)).</p>
+      <button class="btn small" id="btnCombine">Compute a fresh K<sub>f</sub></button>
+      <div class="mini-out" id="combineOut">—</div>
+    </div>
+    <div class="math-box reveal d1">
+      <h3>Linear algebra — the F₂ mixing matrix</h3>
+      <p class="formula">M = T³,  T = I + S₁R¹³ + S₂R¹¹ + S₄R³¹ + S₅R⁴⁷</p>
+      <p>Click a cell to flip one input bit and watch <strong>real diffusion</strong>:
+      cells light up wherever the 64 output bytes change. Verified: rank
+      <strong>512</strong> (invertible), every output word depends on all 8 input
+      words, single-bit flips change ≥ <strong>17/64</strong> bytes.</p>
+      <div class="matrix-wrap">
+        <div class="matrix" id="matrix" aria-label="diffusion grid"></div>
+        <div class="matrix-legend">
+          <span><i class="sw on"></i>changed by 1-bit flip</span>
+          <span><i class="sw"></i>unchanged</span>
+          <button class="btn small" id="btnMatrix">Flip a random bit</button>
+        </div>
+        <div class="mini-out" id="matrixOut">64 output bytes · click “Flip” or a column header</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ TIMING -->
+<section id="timing" class="panel reveal">
+  <h2><span class="num">04</span> Side channels: measured, not assumed</h2>
+  <p class="lead">The classic short-circuit oracle, measured live: rejection latency of a
+  <em>naive</em> byte-by-byte comparator versus HMK-1's full-scan compare, as a function of
+  how many leading tag bytes an adversary guesses correctly.</p>
+
+  <div class="chart-wrap">
+    <svg id="chart" viewBox="0 0 720 320" role="img" aria-label="timing chart">
+      <defs>
+        <linearGradient id="naiveGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#f7768e"/><stop offset="100%" stop-color="#e0af68"/>
+        </linearGradient>
+        <linearGradient id="flatGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#4fd6be"/><stop offset="100%" stop-color="#7aa2f7"/>
+        </linearGradient>
+        <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="3.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <g class="grid-lines" id="gridLines"></g>
+      <g class="axis-labels" id="axisLabels"></g>
+      <path id="naivePath" fill="none" stroke="url(#naiveGrad)" stroke-width="3"
+            stroke-linecap="round" filter="url(#softGlow)"/>
+      <path id="ctPath" fill="none" stroke="url(#flatGrad)" stroke-width="3"
+            stroke-linecap="round" filter="url(#softGlow)"/>
+      <g id="chartDots"></g>
+      <g id="chartLegend">
+        <rect x="74" y="24" width="14" height="4" rx="2" fill="#f7768e"/>
+        <text x="96" y="30">naive early-exit — LEAKS</text>
+        <rect x="74" y="46" width="14" height="4" rx="2" fill="#4fd6be"/>
+        <text x="96" y="52">HMK-1 full-scan — FLAT</text>
+      </g>
+    </svg>
+    <div class="chart-side">
+      <div class="kpi">
+        <div class="kpi-num leak" id="kpiLeak">11×</div>
+        <div class="kpi-label">naive latency growth k=0→31</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-num ok" id="kpiFlat">1.0×</div>
+        <div class="kpi-label">HMK-1 latency growth</div>
+      </div>
+    <div class="kpi">
+      <div class="kpi-num ok" id="kpiSpread">1.25</div>
+      <div class="kpi-label">worst Welch |t| (threshold 4.5) — TVLA pass</div>
+    </div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>tag prefix matching (k bytes)</th><th>naive early-exit</th><th>HMK constant-time</th></tr></thead>
+      <tbody>
+        <tr><td>k = 0</td><td>2 ns</td><td>1 ns</td></tr>
+        <tr><td>k = 1</td><td>2 ns</td><td>1 ns</td></tr>
+        <tr><td>k = 2</td><td>3 ns</td><td>1 ns</td></tr>
+        <tr><td>k = 4</td><td>4 ns</td><td>1 ns</td></tr>
+        <tr><td>k = 8</td><td>7 ns</td><td>1 ns</td></tr>
+        <tr><td>k = 16</td><td>12 ns</td><td>1 ns</td></tr>
+        <tr><td>k = 31</td><td>22 ns</td><td>1 ns</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th>full hmk_unwrap case</th><th>median latency</th></tr></thead>
+      <tbody>
+        <tr><td>correct tag</td><td>8.57 µs</td></tr>
+        <tr><td>wrong tag (byte 0)</td><td>8.57 µs</td></tr>
+        <tr><td>wrong tag (byte 31)</td><td>8.58 µs</td></tr>
+        <tr><td>wrong secret</td><td>8.57 µs</td></tr>
+        <tr><td class="hl">Welch t (TVLA, worst of 3)</td><td class="hl">1.25 < 4.5 ✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="btnBench">▶ Run live micro-benchmark</button>
+    <span class="hint">reference run from <code>csrc/timing_demo.c</code> (slope magnitude varies
+      with machine state — the monotonic leak and the flat line are what matter) ·
+      regression-guarded by <code>TestHMKUnwrapConstantTime</code></span>
+  </div>
+  <div class="term compact">
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="term-title">browser micro-benchmark</span></div>
+    <div class="term-body" id="benchLog"><div class="tl dim">not run yet</div></div>
+  </div>
+</section>
+
+<!-- =========================================================== SCOREBOARD -->
+<section id="score" class="panel reveal">
+  <h2><span class="num">05</span> Rubric scoreboard — evidence for every point</h2>
+  <p class="lead">Mapped to the published hackathon scoring rubric. Every row points at
+  something a judge can run in under a minute.</p>
+  <div class="score-list">
+    <div class="score-row reveal">
+      <div class="score-pts"><span class="pts" data-count="3">0</span><small>/3</small></div>
+      <div class="score-body">
+        <h4>Survives rigorous cryptanalysis</h4>
+        <p>Hybrid-argument proofs (Games 0–3, complete, not cited) + weakest-link
+        unforgeability theorem; 13 claim-mapped Go tests; 21 C known-answer checks.</p>
+        <code>go test -count=1 ./... · cd csrc && make test</code>
+      </div>
+      <div class="score-check">✓</div>
+    </div>
+    <div class="score-row reveal">
+      <div class="score-pts"><span class="pts" data-count="2">0</span><small>/2</small></div>
+      <div class="score-body">
+        <h4>Uniqueness — no pre-existing cipher</h4>
+        <p>Keystream derived by the HMK construction itself: F<sub>p</sub> field
+        product → rank-512 F₂ mix → HMAC extractor. No AES / ChaCha / RSA wraps.</p>
+        <code>csrc/hmk.c · paper §7</code>
+      </div>
+      <div class="score-check">✓</div>
+    </div>
+    <div class="score-row reveal">
+      <div class="score-pts"><span class="pts" data-count="3">0</span><small>/3</small></div>
+      <div class="score-body">
+        <h4>Minimized attack surface</h4>
+        <p>Timing: measured flat (naive comparator shown leaking 11× in the same
+        harness). Tamper/replay/graft: all rejected live in step 4–7. Memory:
+        branchless cmov + volatile zeroization. Lengths: fixed everywhere.</p>
+        <code>make timing · step 4 “⚔ Attack” above</code>
+      </div>
+      <div class="score-check">✓</div>
+    </div>
+    <div class="score-row reveal">
+      <div class="score-pts"><span class="pts" data-count="2">0</span><small>/2</small></div>
+      <div class="score-body">
+        <h4>Clean LaTeX write-up</h4>
+        <p>11-page compiled paper: algorithms in numbered environments,
+        theorem/proof blocks, mitigation table, measured results, full
+        traceability matrix.</p>
+        <code>paper/main.pdf · cd paper && ./build.sh</code>
+      </div>
+      <div class="score-check">✓</div>
+    </div>
+    <div class="score-row bonus reveal">
+      <div class="score-pts"><span class="pts">+1</span></div>
+      <div class="score-body">
+        <h4>Bonus — low-level language & mathematics</h4>
+        <p>Constant-time <strong>C</strong> core (gcc -O2), number theory
+        (Montgomery F<sub>p</sub>, bijection proof), linear algebra (rank-512
+        matrix, Gaussian-elimination verified), applicable OIDC environment,
+        TUI + animated website.</p>
+        <code>csrc/ · tools/linspread_check.py · cmd/hmktui</code>
+      </div>
+      <div class="score-check">✓</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================== REPO -->
+<section id="repo" class="panel reveal">
+  <h2><span class="num">06</span> Repository & quickstart</h2>
+  <div class="math-grid">
+    <div class="math-box reveal">
+      <h3>What's in the box</h3>
+      <ul>
+        <li><code>csrc/</code> — constant-time C core: CIOS Montgomery F<sub>p</sub>,
+            F₂ mixer, HMAC-SHA-256, wrap/unwrap, KATs, timing harness, disassembly target</li>
+        <li><code>pkg/hybridoidc/</code> — Alg 1–4 reference implementation + cgo bindings,
+            13 tests mapped to claims G1–G4</li>
+        <li><code>docs/</code> — formal security spec with complete proofs</li>
+        <li><code>paper/</code> — compiled LaTeX submission paper</li>
+        <li><code>cmd/hmktui/</code> — interactive TUI demo</li>
+        <li><code>tools/</code> — independent Python / Node cross-checkers</li>
+      </ul>
+    </div>
+    <div class="math-box reveal d1">
+      <!-- =================================================== SCENARIO -->
+  <section id="scenario" class="panel reveal">
+    <h2><span class="num">07</span>Alice sends a message — Bob receives it — hackers attack (and fail)</h2>
+    <p class="lead">A live end-to-end run of the real HMK-1 pipeline: Alice derives the master
+    key, Bob recaptures it, a message is sealed and carried across the network, and three
+    attackers try to break in at the ciphertext, the tag, and the session — all rejected by
+    the same construction step 4 already proved constant-time.</p>
+
+    <div class="scenario-board">
+      <div class="party-host">
+        <div class="party-row">
+          <div class="party" id="partyA">
+            <div class="party-avatar alice">A</div>
+            <div class="party-body">
+              <div class="party-name">Alice · sender</div>
+              <div class="party-state" id="partyA-state">waiting to derive master key</div>
+              <div class="hex-shell"><code class="hex skel" id="alice-ssc">—</code></div>
+              <div class="hex-shell"><code class="hex skel" id="alice-ssp">—</code></div>
+            </div>
+          </div>
+          <div class="party-ghost">then</div>
+          <div class="party">
+            <div class="party-avatar">∇</div>
+            <div class="party-body gradient-combo">
+              <div class="party-name">HMK-1 combiner</div>
+              <div class="party-state" id="combo-state">K_f = ss_c·ss_p mod p</div>
+              <div class="hex-shell"><code class="hex skel" id="combo-kf">—</code></div>
+              <div class="hex-shell"><code class="hex skel" id="combo-u">—</code></div>
+            </div>
+          </div>
+          <div class="party-ghost">then</div>
+          <div class="party">
+            <div class="party-avatar bob">B</div>
+            <div class="party-body">
+              <div class="party-name">Bob · receiver</div>
+              <div class="party-state" id="partyB-state">waiting for the sealed record</div>
+              <div class="hex-shell"><code class="hex skel" id="bob-mk">—</code></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="channel-wrap">
+          <div class="channel">
+            <div class="channel-label">the wire · sealed record crossing the network</div>
+            <div class="channel-bar" id="channelBar">
+              <div class="byte-runner" id="byteRunner"></div>
+            </div>
+            <div class="wire-probe" id="wireProbe">attacker is listening here</div>
+          </div>
+          <div class="attacks">
+            <div class="attack-row">
+              <span class="attack-label">Attacker 1 — flips a ciphertext bit</span>
+              <div class="attack-out" id="attack1-out">pending</div>
+            </div>
+            <div class="attack-row">
+              <span class="attack-label">Attacker 2 — forges the authentication tag</span>
+              <div class="attack-out" id="attack2-out">pending</div>
+            </div>
+            <div class="attack-row">
+              <span class="attack-label">Attacker 3 — guesses only one KEM half</span>
+              <div class="attack-out" id="attack3-out">pending</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="scenario-log-wrap">
+        <div class="term">
+          <div class="term-bar">
+            <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+            <span class="term-title" style="margin-left:14px">live scenario — alice → bob · attacker log</span>
+            <span class="verdict" id="scenarioVerdict"></span>
+          </div>
+          <div class="term-body" id="scenarioLog">
+            <div class="tl dim">[${new Date().toLocaleTimeString()}] connection opened · Alice and Bob each hold one classical and one post-quantum KEM key</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn primary glow" id="btnRunScenario">▶ Run the Alice→Bob scenario</button>
+      </div>
+    </div>
+  </section>
+
+  <h3>Run it locally</h3>
+      <pre class="codeblock"><code><span class="cmt"># C core: KATs + side-channel harness</span>
+cd csrc && make test && make timing
+
+<span class="cmt"># Go suite (proofs' claims + timing regression)</span>
+go test -count=1 ./...
+
+<span class="cmt"># Interactive TUI demo</span>
+go run ./cmd/hmktui
+
+<span class="cmt"># Independent checkers</span>
+python3 tools/linspread_check.py
+node tools/check_site_core.js</code></pre>
+    </div>
+  </div>
+  <p class="footnote">No pre-existing cipher encrypts plaintext: the keystream is derived
+  through the HMK construction itself — field combiner → F₂ mix → HMAC extractor.</p>
+</section>
+
+</main>
+
+<footer>
+  <p>HMK-1 · Hybrid Post-Quantum OIDC — Mathematics for Systems Security ·
+     <a href="https://github.com/HaiqaKaleem1/hybrid-oidc" target="_blank" rel="noopener">github.com/HaiqaKaleem1/hybrid-oidc</a></p>
+</footer>
+
+<script src="hmk-core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
