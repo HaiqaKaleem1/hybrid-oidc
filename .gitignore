@@ -17,10 +17,15 @@ paper/*.toc
 # binaries
 /hmktui
 
+# local env
+cs.env
+.vercel
+node_modules/
+
 # workspace-only helpers (merge snapshots, dev diagnostics, smoke tests)
-site/.index.head.html
-site/.net.head.html
-site/.net.cur.html
+site/.app.*
+site/.index.*
+site/.net.*
 /*.html
 /verify.js
 /net-screenshot.js
@@ -31,8 +36,3 @@ site/.net.cur.html
 /test-*.js
 /test-*.html
 /check-net-page.js
-
-# local env
-.env
-.vercel
-node_modules/
