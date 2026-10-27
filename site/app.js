@@ -1441,7 +1441,7 @@ async function netSend(senderId, receiverId, attack = "none") {
         netLine("dim", t() + " why: a MAC authenticates content, not freshness — freshness comes from the receiver's one-time nonce window");
         netLine("dim", t() + " why: without a second accepted encryption under this nonce the keystream never repeats (HMAC-DRBG-style: 1 nonce → 1 keystream)");
       } else {
-        const calc = await hmacSha256(s.kmac, concat(enc("hmk/v1/tag"), finalNonce, finalCt, AAD));
+        const calc = await hmacSh256(s.kmac, concat(enc("hmk/v1/tag"), finalNonce, finalCt, AAD));
         netLine("bad", t() + " REJECTED — recalculated tag " + hex16(calc).slice(0, 16) + "… ≠ " + hex16(finalTag).slice(0, 16) + "…");
 
         const why = {
