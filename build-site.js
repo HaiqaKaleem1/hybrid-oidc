@@ -42,7 +42,8 @@ const checks = [
   ['no rubric scoreboard',  !html.includes('id="score"')],
   ['no .score-row',         !html.includes('score-row')],
   ['network section',       html.includes('id="network"')],
-  ['scenario kept',         html.includes('id="scenario"')],
+  ['no scenario section',   !html.includes('id="scenario"')],
+  ['no scenario button',    !html.includes('btnRunScenario')],
   ['demo section',          html.includes('id="demo"')],
   ['timing section',        html.includes('id="timing"')],
   ['math section',          html.includes('id="math"')],
@@ -54,7 +55,7 @@ const checks = [
   ['wire frame',            html.includes('id="frameHex"')],
   ['roster SW-1',           html.includes('SW-1') && html.includes('RT-1') && html.includes('AP-1')],
   ['matrix',                html.includes('id="mxGrid"')],
-  ['scripts at end',        html.indexOf('app.js') > html.indexOf('scenario')],
+  ['scripts at end',        html.indexOf('app.js') > html.indexOf('id="repo"')],
   ['doctype first',         html.startsWith('<!DOCTYPE html>')],
   ['closing html',          html.trimEnd().endsWith('</html>')],
 ];

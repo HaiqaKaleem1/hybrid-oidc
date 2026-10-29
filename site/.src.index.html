@@ -25,7 +25,7 @@
       <a href="#claims">Claims</a>
       <a href="#math">Math</a>
       <a href="#timing">Timing</a>
-      <a href="#score">Scoreboard</a>
+      <a href="#network">Network</a>
       <a class="nav-cta" href="https://github.com/HaiqaKaleem1/hybrid-oidc" target="_blank" rel="noopener">GitHub ↗</a>
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
@@ -411,91 +411,6 @@
       </ul>
     </div>
     <div class="math-box reveal d1">
-      <!-- =================================================== SCENARIO -->
-  <section id="scenario" class="panel reveal">
-    <h2><span class="num">07</span>Alice sends a message — Bob receives it — hackers attack (and fail)</h2>
-    <p class="lead">A live end-to-end run of the real HMK-1 pipeline: Alice derives the master
-    key, Bob recaptures it, a message is sealed and carried across the network, and three
-    attackers try to break in at the ciphertext, the tag, and the session — all rejected by
-    the same construction step 4 already proved constant-time.</p>
-
-    <div class="scenario-board">
-      <div class="party-host">
-        <div class="party-row">
-          <div class="party" id="partyA">
-            <div class="party-avatar alice">A</div>
-            <div class="party-body">
-              <div class="party-name">Alice · sender</div>
-              <div class="party-state" id="partyA-state">waiting to derive master key</div>
-              <div class="hex-shell"><code class="hex skel" id="alice-ssc">—</code></div>
-              <div class="hex-shell"><code class="hex skel" id="alice-ssp">—</code></div>
-            </div>
-          </div>
-          <div class="party-ghost">then</div>
-          <div class="party">
-            <div class="party-avatar">∇</div>
-            <div class="party-body gradient-combo">
-              <div class="party-name">HMK-1 combiner</div>
-              <div class="party-state" id="combo-state">K_f = ss_c·ss_p mod p</div>
-              <div class="hex-shell"><code class="hex skel" id="combo-kf">—</code></div>
-              <div class="hex-shell"><code class="hex skel" id="combo-u">—</code></div>
-            </div>
-          </div>
-          <div class="party-ghost">then</div>
-          <div class="party">
-            <div class="party-avatar bob">B</div>
-            <div class="party-body">
-              <div class="party-name">Bob · receiver</div>
-              <div class="party-state" id="partyB-state">waiting for the sealed record</div>
-              <div class="hex-shell"><code class="hex skel" id="bob-mk">—</code></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="channel-wrap">
-          <div class="channel">
-            <div class="channel-label">the wire · sealed record crossing the network</div>
-            <div class="channel-bar" id="channelBar">
-              <div class="byte-runner" id="byteRunner"></div>
-            </div>
-            <div class="wire-probe" id="wireProbe">attacker is listening here</div>
-          </div>
-          <div class="attacks">
-            <div class="attack-row">
-              <span class="attack-label">Attacker 1 — flips a ciphertext bit</span>
-              <div class="attack-out" id="attack1-out">pending</div>
-            </div>
-            <div class="attack-row">
-              <span class="attack-label">Attacker 2 — forges the authentication tag</span>
-              <div class="attack-out" id="attack2-out">pending</div>
-            </div>
-            <div class="attack-row">
-              <span class="attack-label">Attacker 3 — guesses only one KEM half</span>
-              <div class="attack-out" id="attack3-out">pending</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="scenario-log-wrap">
-        <div class="term">
-          <div class="term-bar">
-            <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-            <span class="term-title" style="margin-left:14px">live scenario — alice → bob · attacker log</span>
-            <span class="verdict" id="scenarioVerdict"></span>
-          </div>
-          <div class="term-body" id="scenarioLog">
-            <div class="tl dim">[${new Date().toLocaleTimeString()}] connection opened · Alice and Bob each hold one classical and one post-quantum KEM key</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="controls">
-        <button class="btn primary glow" id="btnRunScenario">▶ Run the Alice→Bob scenario</button>
-      </div>
-    </div>
-  </section>
-
   <h3>Run it locally</h3>
       <pre class="codeblock"><code><span class="cmt"># C core: KATs + side-channel harness</span>
 cd csrc && make test && make timing
