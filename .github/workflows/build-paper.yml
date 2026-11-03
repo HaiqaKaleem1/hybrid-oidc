@@ -3,13 +3,15 @@ name: build-paper
 # Compiles paper/main.tex with tectonic and commits the rendered PDF back
 # to main. Runs on every push that touches the source or this workflow, and
 # can also be triggered manually from the Actions tab.
+#
+# Note: tectonic is installed via taiki-e/install-action (prebuilt binary);
+# tectonic-typesetting/setup-tectonic no longer exists as an Actions repo.
 on:
   workflow_dispatch:
   push:
     paths:
       - 'paper/main.tex'
       - '.github/workflows/build-paper.yml'
-# PDF re-sync trigger (no-op comment)
 
 permissions:
   contents: write
@@ -21,9 +23,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install tectonic
-        uses: tectonic-typesetting/setup-tectonic@v3
+        uses: taiki-e/install-action@v2
         with:
-          biber-version: 'latest'
+          tool: tectonic
 
       - name: Compile the paper
         run: |

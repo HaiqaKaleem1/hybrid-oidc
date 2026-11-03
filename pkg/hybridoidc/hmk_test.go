@@ -196,3 +196,87 @@ func TestHMKUnwrapConstantTime(t *testing.T) {
 	}
 	_ = mk
 }
+
+// Randomized property test (1,000 seeded cases, deterministic in CI):
+// (1) an honest wrap/unwrap round-trip succeeds for arbitrary key/nonce
+// material, and (2) exactly one random bit flipped anywhere in any input
+// surface (ss, nonce, ct, tag) or any OTHER AAD must reject with
+// ErrTagMismatch and return no key material. This is the randomized
+// analogue of the fixed tamper table in TestHMKWrapUnwrap and of the
+// bit-level CPA simulator: fresh wraps and fresh single-bit tamper
+// positions per case, testing every byte position of every surface over
+// time rather than a hand-picked list.
+func TestHMKFuzzRoundTripAndTamper(t *testing.T) {
+	r := rand.New(rand.NewSource(0xC0FFEE))
+	aad := []byte("rp.example.com")
+	evilAADs := [][]byte{
+		[]byte("evil.example"),
+		[]byte(""),
+		[]byte("rp.example.co"),
+		[]byte("RP.EXAMPLE.COM"),
+	}
+
+	const cases = 1000
+	surfaces := []string{"ss", "nonce", "ct", "tag", "aad"}
+
+	for i := 0; i < cases; i++ {
+		ss := make([]byte, HMKSSLen)
+		nonce := make([]byte, HMKNonceLen)
+		mk := make([]byte, HMKMKLen)
+		r.Read(ss)
+		r.Read(nonce)
+		r.Read(mk)
+
+		ct, tag, err := WrapMasterKey(ss, nonce, mk, aad)
+		if err != nil {
+			t.Fatalf("case %d: wrap failed: %v", i, err)
+		}
+
+		// honest round-trip
+		got, err := UnwrapMasterKey(ss, nonce, ct, tag, aad)
+		if err != nil {
+			t.Fatalf("case %d: honest unwrap failed: %v", i, err)
+		}
+		if !bytes.Equal(got, mk) {
+			t.Fatalf("case %d: honest unwrap returned wrong master key", i)
+		}
+
+		// one random single-bit flip in one random surface
+		surf := surfaces[r.Intn(len(surfaces))]
+		position := 0
+		bad := func(b []byte, pos, length int) []byte {
+			c := append([]byte{}, b...)
+			c[pos] ^= 1 << r.Intn(8)
+			return c
+		}
+		var gotAad []byte
+		switch surf {
+		case "ss":
+			position = r.Intn(HMKSSLen)
+			ss = bad(ss, position, HMKSSLen)
+		case "nonce":
+			position = r.Intn(HMKNonceLen)
+			nonce = bad(nonce, position, HMKNonceLen)
+		case "ct":
+			position = r.Intn(len(ct))
+			ct = bad(ct, position, len(ct))
+		case "tag":
+			position = r.Intn(len(tag))
+			tag = bad(tag, position, len(tag))
+		case "aad":
+			gotAad = evilAADs[r.Intn(len(evilAADs))]
+		}
+		if gotAad == nil {
+			gotAad = aad
+		}
+
+		out, err := UnwrapMasterKey(ss, nonce, ct, tag, gotAad)
+		if !errors.Is(err, ErrTagMismatch) {
+			t.Fatalf("case %d: %s bit-flip (pos %d) should reject, got err=%v out=%x",
+				i, surf, position, err, out)
+		}
+		if out != nil {
+			t.Fatalf("case %d: %s bit-flip (pos %d) must return no key material", i, surf, position)
+		}
+	}
+}
