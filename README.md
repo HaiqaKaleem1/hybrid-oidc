@@ -1,5 +1,9 @@
 # HMK-1 · Hybrid Post-Quantum OpenID Connect
 
+[![tests](https://github.com/HaiqaKaleem1/hybrid-oidc/actions/workflows/tests.yml/badge.svg)](https://github.com/HaiqaKaleem1/hybrid-oidc/actions/workflows/tests.yml)
+[![paper build](https://github.com/HaiqaKaleem1/hybrid-oidc/actions/workflows/build-paper.yml/badge.svg)](https://github.com/HaiqaKaleem1/hybrid-oidc/actions/workflows/build-paper.yml)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+
 **Track:** Cryptographer track — *Mathematics for Systems Security*
 **Suggested repo description (paste into GitHub → About):**
 > Constant-time composite-hybrid master-key encryption for post-quantum OIDC: F_p field combiner (number theory) + rank-512 F_2 mixing matrix (linear algebra) + C core with measured side-channel resistance. Full LaTeX proofs, TUI & web demo.
@@ -22,9 +26,9 @@ and is hardened against side channels **by measurement, not assertion**.
   │          cipher encrypts plaintext — all low-level C]               │
   └──────────────────────────────┬───────────────────────────────────────┘
                                  ▼
-  ┌ hybrid JWT (Alg 4) + channel binding ───────────────── G3/G4 ──────┐
-  │  conjunction acceptance · weakest-link bound · replay rejection     │
-  └────────────────────────────────────────────────────────────────────┘
+  ┌ hybrid JWT (Alg 4) + channel binding ─────────────── G3/G4 ─────┐
+  │  conjunction acceptance · weakest-link bound · replay rejection │
+  └───────────────────────────────────────────────────────────────────┘
 ```
 
 ## Why it resists the track's target vulnerabilities
@@ -94,6 +98,9 @@ node tools/check_site_core.js
 
 # 6. The paper
 cd paper && ./build.sh        # tectonic or latexmk → main.pdf
+
+# 7. The captured evidence bundle (read-only view of real runs above)
+cat artifacts/README.md && sha256sum -c artifacts/MANIFEST.sha256
 ```
 
 **Demo website** (`site/`, static — deployable as-is):
@@ -111,6 +118,10 @@ rejection and a naive-vs-constant-time micro-benchmark.
 ## Repository layout
 
 ```
+artifacts/         reproducible evidence bundle: captured outputs of the C
+                   self-test, the timing harness, the matrix-rank check and
+                   the site-core cross-check, all regenerated in one command
+                   each (see artifacts/README.md); Go claim tests run in CI
 csrc/              constant-time C core (HMK-1): ct utils, SHA-256/HMAC,
                    GF(p) Montgomery combiner, F₂ mixer, wrap/unwrap,
                    self-test (make test), timing harness (make timing),
@@ -170,23 +181,6 @@ Worst |t| = **1.25 → no detectable timing leak**. `TestHMKUnwrapConstantTime`
 fails the suite if medians ever spread beyond 2×. (Fun fact: measuring the
 cases in *fixed* order falsely flagged |t| = 8.96 — that was thermal drift,
 not code; interleaving the stimulus, as real TVLA requires, fixed it.)
-
-## Video storyboard (recommended ~3 min)
-
-1. **0:00–0:20** — Hook: "Post-quantum hybrids die by side channels. This
-   one is measured." Title card + track.
-2. **0:20–0:50** — Paper skim: Theorem 1, the two corollaries, the
-   weakest-link theorem, traceability table.
-3. **0:50–1:30** — `csrc`: `make test` (21 checks green) → explain the F_p
-   combiner + rank-512 matrix on screen → `make asm` (show straight-line
-   disassembly).
-4. **1:30–2:10** — `make timing`: point at the naive line climbing 2→22 ns
-   while HMK stays flat; then unwrap table flat across all four cases.
-5. **2:10–2:50** — TUI (`go run ./cmd/hmktui`, press `a`): keygen → wrap →
-   adversary flip → red rejection → JWT half-sig rejection → replay
-   rejection → timing verdict "FLAT".
-6. **2:50–3:10** — Website demo in the browser + `go test ./...` all green +
-   repo/paper link. End card.
 
 ## What this work does *not* claim
 
