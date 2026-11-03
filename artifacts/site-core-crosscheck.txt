@@ -1,0 +1,9 @@
+ok   linspread(00..3f) matches C core
+ok   linspread(5a×64) matches C core
+ok   fieldCombine matches Python reference
+ok   hmacSha256 matches RFC 4231 tc1
+ok   ctMemcmp equal -> true
+ok   ctMemcmp differ -> false
+ok   naiveVerify differ at byte1 -> false
+
+site core: ALL CHECKS PASSED (matches C + Python references)

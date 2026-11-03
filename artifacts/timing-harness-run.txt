@@ -1,0 +1,31 @@
+cc -O2 -std=gnu11 -Wall -Wextra -o hmk_timing timing_demo.c libhmk.a -lm
+./hmk_timing
+HMK-1 side-channel measurement
+==============================
+tag-prefix rejection latency: presented tag matches stored tag
+for the first k bytes, then mismatches.
+
+     k         naive (ns)        HMK ct (ns)
+     0                  2                  1
+     1                  3                  1
+     2                  3                  1
+     4                  5                  2
+     8                  4                  1
+    16                  8                  1
+    31                 13                  1
+
+full hmk_unwrap latency (median of 400 rounds x 512 calls,
+cases interleaved in rotating order to cancel temporal drift)
+  case                        ns/call
+  correct tag                    8491
+  wrong tag (byte 0)             8490
+  wrong tag (byte 31)            8496
+  wrong ss                       8493
+
+Welch t-test, correct vs failing unwrap (constant-time passes |t| < 4.5):
+  correct vs wrong tag (byte 0) |t| =  1.683   PASS
+  correct vs wrong tag (byte 31) |t| =  1.823   PASS
+  correct vs wrong ss           |t| =  1.289   PASS
+  worst |t| = 1.823 -> NO DETECTABLE TIMING LEAK
+
+sink=204800 (prevents dead-code elimination)

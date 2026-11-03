@@ -1,0 +1,26 @@
+./hmk_selftest
+HMK-1 C core self-test
+======================
+ok   sha256("")
+ok   sha256("abc")
+ok   hmac rfc4231 tc1
+ok   hmac rfc4231 tc2
+ok   gf mul mod p (python KAT, LE bytes)
+ok   gf 0*x == 0
+ok   gf combine normalizes 0 -> 1
+ok   linspread is F_2-linear
+ok   linspread(0) == 0
+ok   linspread: every output word depends on every input word
+ok   linspread diffusion >= 16/64 bytes per input bit
+       (min changed bytes: 17/64)
+ok   wrap ok
+ok   unwrap roundtrip
+ok   reject tag[0] mismatch
+ok   reject tag[31] mismatch
+ok   reject tampered ct
+ok   reject wrong ss
+ok   reject wrong nonce
+ok   reject wrong aad
+ok   wrap is deterministic for fixed (ss, nonce, mk, aad)
+
+all checks passed

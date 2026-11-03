@@ -1,0 +1,13 @@
+p          = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff000003d1
+a          = 0x1111111111111111222222222222222233333333333333334444444444444444
+b          = 0xdeadbeefdeadbeefcafebabecafebabe0123456789abcdef0000000000000001
+a*b mod p  = 0x7d88bced3ed60579ff2c4bc4a1f37ba15a658759f88c36d7adcfd957d0786355
+LE hex KAT = 556378d057d9cfadd7368cf85987655aa17bf3a1c44b2cff7905d63eedbc887d
+
+Montgomery constants for csrc/gf256.c:
+  n0inv     = 0x895950202ddacacf
+  R2 limbs  = ['0xfffff85e000e90a1', '0x0', '0x0', '0x0']
+rank(M)          = 512 (need 512)
+full word support = True
+min bytes changed per input-bit flip = 17/64
+linspread: ALL CHECKS PASSED
