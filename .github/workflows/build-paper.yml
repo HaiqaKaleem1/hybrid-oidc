@@ -9,6 +9,7 @@ on:
     paths:
       - 'paper/main.tex'
       - '.github/workflows/build-paper.yml'
+# PDF re-sync trigger (no-op comment)
 
 permissions:
   contents: write
