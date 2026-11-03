@@ -26,9 +26,9 @@ and is hardened against side channels **by measurement, not assertion**.
   │          cipher encrypts plaintext — all low-level C]               │
   └──────────────────────────────┬───────────────────────────────────────┘
                                  ▼
-  ┌ hybrid JWT (Alg 4) + channel binding ─────────────── G3/G4 ─────┐
-  │  conjunction acceptance · weakest-link bound · replay rejection │
-  └───────────────────────────────────────────────────────────────────┘
+  ┌ hybrid JWT (Alg 4) + channel binding ───────────────── G3/G4 ──────┐
+  │  conjunction acceptance · weakest-link bound · replay rejection     │
+  └────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Why it resists the track's target vulnerabilities
@@ -181,6 +181,23 @@ Worst |t| = **1.25 → no detectable timing leak**. `TestHMKUnwrapConstantTime`
 fails the suite if medians ever spread beyond 2×. (Fun fact: measuring the
 cases in *fixed* order falsely flagged |t| = 8.96 — that was thermal drift,
 not code; interleaving the stimulus, as real TVLA requires, fixed it.)
+
+## Video storyboard (recommended ~3 min)
+
+1. **0:00–0:20** — Hook: "Post-quantum hybrids die by side channels. This
+   one is measured." Title card + track.
+2. **0:20–0:50** — Paper skim: Theorem 1, the two corollaries, the
+   weakest-link theorem, traceability table.
+3. **0:50–1:30** — `csrc`: `make test` (21 checks green) → explain the F_p
+   combiner + rank-512 matrix on screen → `make asm` (show straight-line
+   disassembly).
+4. **1:30–2:10** — `make timing`: point at the naive line climbing 2→22 ns
+   while HMK stays flat; then unwrap table flat across all four cases.
+5. **2:10–2:50** — TUI (`go run ./cmd/hmktui`, press `a`): keygen → wrap →
+   adversary flip → red rejection → JWT half-sig rejection → replay
+   rejection → timing verdict "FLAT".
+6. **2:50–3:10** — Website demo in the browser + `go test ./...` all green +
+   repo/paper link. End card.
 
 ## What this work does *not* claim
 
