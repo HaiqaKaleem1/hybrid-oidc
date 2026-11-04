@@ -4,8 +4,11 @@ name: build-paper
 # to main. Runs on every push that touches the source or this workflow, and
 # can also be triggered manually from the Actions tab.
 #
-# Note: tectonic is installed via taiki-e/install-action (prebuilt binary);
-# tectonic-typesetting/setup-tectonic no longer exists as an Actions repo.
+# Note: tectonic is installed by downloading the pinned static musl binary
+# from its GitHub release. tectonic-typesetting/setup-tectonic no longer
+# exists, and taiki-e/install-action does not list tectonic as a supported
+# tool, so it falls back to cargo-binstall, which fails on runner networks
+# (exit 70). A direct release download avoids both failure modes.
 on:
   workflow_dispatch:
   push:
@@ -22,10 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install tectonic
-        uses: taiki-e/install-action@v2
-        with:
-          tool: tectonic
+      - name: Install tectonic (pinned 0.17.0, static musl build)
+        run: |
+          curl -fsSL -o /tmp/tectonic.tar.gz \
+            "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-x86_64-unknown-linux-musl.tar.gz"
+          tar -xzf /tmp/tectonic.tar.gz -C /usr/local/bin tectonic
+          tectonic --version
 
       - name: Compile the paper
         run: |
