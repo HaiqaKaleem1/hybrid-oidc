@@ -1,0 +1,180 @@
+% model.tex — security model for the HMK-1 wrap, and our own cryptanalysis
+% of the implementation. Claims here are stated with the assumptions they
+% actually use; anything not proved is listed in the limitations section.
+
+\section{Security model for the wrap}
+\label{sec:model}
+
+The hybrid-KEM and signature bounds of Sec.~\ref{sec:thm1} say nothing about
+the sealing layer itself. This section states what the wrap of
+Alg.~\ref{alg:wrap} guarantees on its own, so that the argument does not rest
+on the intuition that HMAC is a good primitive. The adversary is a
+probabilistic polynomial-time algorithm with access to the public parameters
+and to the algorithms of Alg.~\ref{alg:wrap}; the master key $mk$ is a
+uniformly random 32-byte string.
+
+\subsection{Games}
+
+\begin{definition}[Sealing games]
+\label{def:games}
+Let $\Pi$ be the wrap of Alg.~\ref{alg:wrap} under a fixed secret $ss$.
+\begin{itemize}
+  \item[$\mathsf{IND}$:] $\mathcal{A}$ may query a sealing oracle. On input
+    $aad_i$ the challenger draws a fresh nonce $n_i$, draws
+    $b \xleftarrow{\$} \{0,1\}$ and returns
+    $(ct_i, tag_i) \gets \Pi(ss, n_i, m_b, aad_i)$ for challenge keys
+    $m_0, m_1$ chosen by $\mathcal{A}$. $\mathcal{A}$ wins by outputting $b$.
+  \item[$\mathsf{CTXT}$:] $\mathcal{A}$ may query the sealing oracle
+    adaptively (any AAD, fresh nonces) and wins by outputting
+    $(n^\ast, ct^\ast, tag^\ast, aad^\ast)$ that unwraps successfully and was
+    never returned by the oracle.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Sealing security]
+\label{thm:seal}
+Let $F$ be the keyed function HMAC-SHA256 under the derived keys of
+Alg.~\ref{alg:wrap}. If $F$ is a secure pseudorandom function, then for every
+adversary making $q'$ unwrap attempts,
+\[
+  \adv{\mathsf{IND}}_{\Pi}(\mathcal{A}) \;\le\; 2\,\adv{\mathrm{PRF}}_{F}(\mathcal{B}),
+  \qquad
+  \adv{\mathsf{CTXT}}_{\Pi}(\mathcal{A}) \;\le\;
+  \adv{\mathrm{PRF}}_{F}(\mathcal{B}') + \frac{q'}{2^{256}} .
+\]
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+\emph{Confidentiality.} Each record's keystream is
+$KS_i = F_{kek}(\texttt{"hmk/v1/ks"} \concat n_i)$. With distinct nonces these
+are distinct PRF inputs, so a hybrid argument over the $q$ queries replaces
+every $KS_i$ by an independent uniform 32-byte string at cost
+$\adv{\mathrm{PRF}}_{F}$, after which $ct_i = m_b \oplus KS_i$ is uniform and
+independent of $b$; answering with a real keystream instead of a uniform one
+costs a second factor of $\adv{\mathrm{PRF}}_{F}$, hence the factor two.
+
+\emph{Integrity.} A tag
+$tag^\ast = F_{kmac}(\texttt{"hmk/v1/tag"} \concat n^\ast \concat ct^\ast
+\concat aad^\ast)$ for a record the oracle never produced is a PRF guess on an
+input not previously evaluated. Up to $\adv{\mathrm{PRF}}_{F}$ it succeeds with
+probability at most $2^{-256}$ per attempt, and a union bound over $q'$
+attempts gives the stated bound. The reduction needs no collision resistance
+from HMAC: the tag input is a fixed-length, prefix-free encoding
+(Sec.~\ref{sec:enc}), so distinct records give distinct tag inputs.
+\end{proof}
+
+\subsection{Fixed-length encodings remove the parsing surface}
+\label{sec:enc}
+
+Every field of a record has exactly one length: $ss=64$, $n=16$, $ct=32$,
+$tag=32$ bytes, and the AAD is the only variable-length field, absorbed last
+into the tagged message. Consequently (i) every record has exactly one byte
+encoding, so two parsers cannot disagree about the same bytes; (ii) there is no
+length field to reinterpret, so no truncation or length-extension variant
+changes what was authenticated; and (iii) the tagged string is prefix-free,
+which is what the forgery argument above needs. The same reasoning is why the
+two signature encodings (fixed-width $r \concat s$ for ES256, DER underneath
+ML-DSA) are normalised at the boundary in Sec.~\ref{sec:hmk}: a
+variable-length encoding inside an authenticated record reintroduces exactly
+the ambiguity that (i)--(iii) exclude.
+
+\subsection{Context binding}
+\label{sec:aad}
+
+\begin{theorem}[No cross-context replay]
+\label{thm:ctx}
+If $F$ is a PRF, then for any two distinct contexts $aad \neq aad'$ a record
+produced under $aad$ fails to unwrap under $aad'$ except with probability
+$2^{-256}$ up to $\adv{\mathrm{PRF}}_{F}$, even if the same nonce and the same
+secret are reused.
+\end{theorem}
+
+\begin{proof}
+The AAD enters only the tag input, so the two tag inputs are
+$\texttt{"hmk/v1/tag"} \concat n \concat ct \concat aad$ and the same string
+ending in $aad'$. The common prefix has fixed length, so the inputs differ;
+PRF outputs on distinct inputs are indistinguishable from independent uniform
+values, and coincide with probability $2^{-256}$. The ciphertext is unchanged
+because the keystream does not depend on the AAD, which is why binding must
+come from the tag --- and why the tag is verified before any key bytes are
+released (\textsf{cmov} in Alg.~\ref{alg:wrap}).
+\end{proof}
+
+\noindent Theorem~\ref{thm:ctx} is what the deployment uses in place of a
+session identifier: a master key sealed for
+\texttt{rp=https://\ldots;sub=\ldots;aud=\ldots} is not accepted in another
+relying-party context, so a stored record cannot be replayed into a different
+tenant. \path{TestNonceReuseIsDetectableAcrossContexts} exercises this case
+with a deliberately repeated nonce.
+
+\subsection{Freshness is the one thing the construction cannot enforce}
+\label{sec:fresh}
+
+\begin{proposition}[Nonce reuse]
+\label{prop:nonce}
+Let two records be produced under the same $ss$, the same $aad$ and the same
+nonce $n$, but different keys $m, m'$. Then $ct \oplus ct' = m \oplus m'$
+exactly: the keystream cancels and either plaintext is recoverable from the
+other given one ciphertext.
+\end{proposition}
+
+\begin{proof}
+$KS = F_{kek}(\texttt{"hmk/v1/ks"} \concat n)$ depends on $(ss, n)$ only, so
+$ct \oplus ct' = (m \oplus KS) \oplus (m' \oplus KS) = m \oplus m'$.
+\end{proof}
+
+\noindent This is the usual one-time-pad discipline of a nonce-based
+keystream. We state it as a proposition rather than leaving it in a doc comment
+because it is the design's only caller obligation. The implementation cannot
+detect reuse without keeping state; what it does instead is (i) document the
+obligation at the API, (ii) derive every nonce in the demo and the TUI from the
+OS CSPRNG at wrap time, and (iii) pin the behaviour in
+\path{TestNonceReuseIsDetectableAcrossContexts}, so a future attempt to
+``optimise'' the nonce into a counter or a constant fails a named test. We
+considered deriving the nonce from the master key itself and rejected it: that
+makes reuse impossible but turns the wrap into deterministic encryption, which
+leaks equality of master keys across tenants.
+
+\subsection{Cryptanalysis of our own implementation}
+\label{sec:selfattack}
+We attacked the implementation, not just the design. Two findings are worth
+recording, both found by reading code and both fixed.
+
+\paragraph{A truncated domain-separation label.}
+Alg.~\ref{alg:wrap} uses three labels: \texttt{hmk/v1/rk}, \texttt{hmk/v1/ks}
+and \texttt{hmk/v1/tag}. They are 9, 9 and 10 bytes long, but the C core copied
+a hard-coded \texttt{9} bytes in both places where \texttt{hmk/v1/tag} is
+absorbed, so the tag was in fact computed over \texttt{hmk/v1/ta}. No
+cross-protocol collision followed --- the three truncated labels remain
+pairwise distinct --- but the separation the specification promises was not the
+separation the code implemented, and any future rename (for example to
+\texttt{hmk/v1/tag2}) would have collided with the old label silently. The fix
+derives every length from \texttt{sizeof} on the label array, so the class of
+defect is now a compile-time impossibility rather than something a reviewer has
+to notice. This is the sort of bug that tests of \emph{behaviour} never catch:
+every round-trip, tamper and constant-time test passed both before and after.
+
+\paragraph{Cross-implementation known-answer vectors.}
+Agreement between a C core and its Go bindings is not evidence that the
+construction is what the paper says. \path{reference/hmk_ref.py} is an
+independent implementation written from the specification in this section
+(big-integer field arithmetic, a byte-at-a-time diffusion map, the standard
+library's HMAC), sharing no code with \path{csrc/}.\footnote{Its one shared
+assumption is SHA-256 itself, which both call from their standard library.}
+\path{tools/gen_kat.py} derives six vectors from it --- including degenerate
+all-zero inputs, a zero field operand, operands larger than $p$, and an OIDC
+context AAD --- and commits them to \path{kat/hmk_vectors.json}.
+\path{TestCOREAgreesWithReference} then drives the production cgo path and
+requires byte-identical ciphertext \emph{and} tag for every vector, so the two
+implementations cannot drift apart without a red test. The same vectors pin the
+wire format: a change to a label, a domain prefix or the field prime changes
+the vector file, and \texttt{make kat} fails until the change is intentional.
+
+\paragraph{What this does and does not establish.}
+The reductions above are standard-model statements about HMAC-SHA256 and say
+nothing about the field combiner or the $\F_2$ layer; those are argued
+separately (Prop.~\ref{prop:onebreak} and the verified rank/support properties
+of $M$) and are not needed for confidentiality, since the keystream already
+depends on the full 64-byte secret through the PRF input. They matter as
+belt-and-braces: if one half of the hybrid secret is broken, $K_f$ retains the
+unbroken half's entropy instead of collapsing to a function of the broken one.
