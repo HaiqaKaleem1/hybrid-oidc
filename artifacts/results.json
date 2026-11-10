@@ -8,7 +8,7 @@
   },
   "machine": {
     "machine": "x86_64",
-    "platform": "Linux-6.1.102-x86_64-with-glibc2.39"
+    "platform": "Linux-7.0.0-1019-azure-x86_64-with-glibc2.43"
   },
   "selftest_checks": 20,
   "timing": {
@@ -23,15 +23,15 @@
       },
       "16": {
         "ct_ns": 1,
-        "naive_ns": 7
+        "naive_ns": 8
       },
       "2": {
         "ct_ns": 1,
-        "naive_ns": 2
+        "naive_ns": 3
       },
       "31": {
         "ct_ns": 1,
-        "naive_ns": 12
+        "naive_ns": 13
       },
       "4": {
         "ct_ns": 1,
@@ -42,18 +42,18 @@
         "naive_ns": 4
       }
     },
-    "spread_pct": 0.06,
+    "spread_pct": 0.01,
     "t": {
-      "wrong ss": 1.095,
-      "wrong tag (byte 0)": 0.754,
-      "wrong tag (byte 31)": 1.642
+      "wrong ss": 0.374,
+      "wrong tag (byte 0)": 0.261,
+      "wrong tag (byte 31)": 0.16
     },
-    "t_worst": 1.642,
+    "t_worst": 0.374,
     "unwrap_ns": {
-      "correct tag": 8490,
-      "wrong ss": 8490,
-      "wrong tag (byte 0)": 8488,
-      "wrong tag (byte 31)": 8485
+      "correct tag": 8208,
+      "wrong ss": 8209,
+      "wrong tag (byte 0)": 8208,
+      "wrong tag (byte 31)": 8209
     }
   }
 }
