@@ -131,6 +131,10 @@ Alg.\ 3 end-to-end master-key recovery & Sec.~\ref{sec:hmk} & \path{TestHMKEndTo
 Constant-time unwrap & Table~\ref{tab:sidechannel} & \path{TestHMKUnwrapConstantTime}, \texttt{hmk\_timing} \\
 $M$ rank 512, full support & Def.~\ref{def:matrix} & \path{linspread\_check.py} + C self-test \\
 F\textsubscript{p} arithmetic correctness & Prop.~\ref{prop:onebreak} & Python KAT + RFC 4231 vectors \\
+Wrap IND/CTXT & Thm~\ref{thm:seal} & \path{TestCOREAgreesWithReference} + tamper vectors \\
+Cross-context replay & Thm~\ref{thm:ctx} & \path{TestNonceReuseIsDetectableAcrossContexts} \\
+Nonce-reuse behaviour & Prop.~\ref{prop:nonce} & \path{TestNonceReuseIsDetectableAcrossContexts} \\
+C core $=$ independent reference & Sec.~\ref{sec:selfattack} & \texttt{make kat} (6 vectors, byte-identical) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -151,21 +155,33 @@ F\textsubscript{p} arithmetic correctness & Prop.~\ref{prop:onebreak} & Python K
   \item The browser demo computes the same construction with BigInt/WebCrypto
         for visualization; it is not constant-time (only the C core carries
         that claim).
+  \item Nonce freshness is a caller obligation, not an enforced invariant
+        (Prop.~\ref{prop:nonce}); the library cannot detect reuse without
+        keeping state, and we chose statelessness deliberately.
+  \item HMK-1 seals a key; it does not split one. Nothing here is a threshold
+        or split-state custody claim, so it is not a substitute for a secret
+        sharing scheme when the threat is a custodian rather than a network
+        attacker.
+  \item The sealing reductions (Thm.~\ref{thm:seal}) treat HMAC-SHA256 as a
+        PRF. We do not prove the construction in the random-oracle model, and
+        we make no claim about related-key or multi-key tightness beyond the
+        PRF term.
 \end{itemize}
 
 \section{Reproducibility}
 One aggregate target reproduces every claim in this paper:
 \texttt{make verify} runs the C self-test, the Go claim tests, the
-adversary harness, the independent checkers and the generator for the
-numbers above, and fails on the first broken claim.
+adversary harness, the independent checkers, the cross-implementation KAT and
+the generator for the numbers above, and fails on the first broken claim.
 
 \begin{lstlisting}[caption={Repository layout and commands},label={repo}]
 csrc/            constant-time C core: make test && make timing
 pkg/hybridoidc/  Alg 1-4 reference impl + cgo bindings: go test ./...
+reference/       independent Python wrap implementation (no csrc/ code)
+kat/             known-answer vectors from that reference (make kat)
 cmd/hmktui/      interactive TUI demo:        go run ./cmd/hmktui
 site/            demo website (static, Vercel-ready)
 docs/            full formal security specification (Markdown)
 paper/           this paper:                  tectonic main.tex
 tools/           independent vector/matrix checkers (Python, Node)
 \end{lstlisting}
-
