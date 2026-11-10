@@ -60,15 +60,19 @@ and is hardened against side channels **by measurement, not assertion**.
   the HMK construction itself (combiner → F₂ mix → HMAC extractor).
 - **Applicable environment:** Alg-3 encapsulation → wrap → decapsulation →
   unwrap pipeline with OIDC AAD binding, plus channel-bound hybrid JWTs.
+- **Real primitives, standard library only:** the deployed composition is
+  ECDH P-256 + **ML-KEM-768** (FIPS 203, `crypto/mlkem`) and ES256 +
+  **ML-DSA-65** (FIPS 204, `crypto/mldsa`). No third-party crypto dependency —
+  `go.mod` requires only `golang.org/x/term` for the TUI.
 
 ## Scoring rubric → evidence (every point, with a runnable check)
 
 | Rubric criterion | Weight | Evidence in this repo |
 |---|---|---|
-| Survives rigorous cryptanalysis | 3 pts | Complete hybrid-argument proofs (Thm 1, Games 0–3), weakest-link EUF bound (Thm 2), channel-binding corollary (Thm 3) · 13 claim-mapped Go tests · 21 C KATs · **TVLA Welch \|t\| = 1.25 < 4.5** |
+| Survives rigorous cryptanalysis | 3 pts | Complete hybrid-argument proofs (Thm 1, Games 0–3), weakest-link EUF bound (Thm 2), channel-binding corollary (Thm 3) · 17 claim-mapped Go tests · 20 C KATs · **TVLA Welch \|t\| ≈ 1.2 < 4.5** |
 | Uniqueness — no pre-existing algorithm | 2 pts | Novel HMK composition: F<sub>p</sub> field-product combiner (bijection one-break proof) → rank-512 F<sub>2</sub> mixer → HMAC extractor. **No AES/ChaCha/RSA ever touches plaintext.** |
 | Minimizes attack surface | 3 pts | Timing: flat, worst \|t\| 1.25, with a naive oracle shown *leaking in the same harness* · tamper/strip/graft/replay rejected live (site steps 4–7, TUI) · memory: branchless cmov + volatile zeroize · lengths: fixed everywhere |
-| Clean LaTeX formatting | 2 pts | `paper/main.pdf` — 11 pages, numbered algorithms, theorem/proof blocks, booktabs tables, traceability matrix, compiled with `./build.sh` |
+| Clean LaTeX formatting | 2 pts | `paper/main.pdf` — numbered algorithms, theorem/proof blocks, booktabs tables, traceability matrix, compiled with `./build.sh` |
 | **Bonus** — low-level language | +1 | Constant-time **C** core, gcc -O2, `make asm` for disassembly inspection |
 | **Bonus** — applicable environment | +1 | OIDC pipeline (Alg 3 → wrap → decap → unwrap, TUI step 5) + channel-bound hybrid JWTs |
 | **Bonus** — visual aesthetic | +1 | Animated TUI (`cmd/hmktui`) + this site with the full live in-browser demo |
@@ -82,9 +86,14 @@ make verify
 That target runs the whole evidence chain in the order CI runs it: the C
 known-answer self-test, the full Go claim suite, the adversary harness in
 `attacks/`, and the three independent checkers (Python vectors, Python
-matrix-rank check, Node site-core cross-check against the C core). It exits
-non-zero on the first broken claim, so a judge never has to take a number on
-trust.
+matrix-rank check, Node site-core cross-check against the C core) and finally
+regenerates the paper's measured numbers. It exits non-zero on the first broken
+claim, so a judge never has to take a number on trust.
+
+No figure in the paper is hand-typed: `make numbers` writes
+`artifacts/results.json` and `paper/generated/numbers.tex`, which `main.tex`
+consumes as macros. Building it caught a stale claim here — the C self-test
+reports 20 checks, not the 21 this README used to assert.
 
 The adversary harness is the part that is worth reading before the paper:
 five concrete attacks that *work* against textbook designs — single-bit
@@ -92,31 +101,25 @@ forgery on every input surface, a known classical half after a break, JWT
 replay across TLS connections, header rewriting, and malformed-length
 probes — each of which must fail here, with no key material released.
 
-```
-$ go run ./attacks
-HMK-1 adversary harness
-=======================
-[PASS] tamper-forgery (W5)                0/145 forgeries accepted, 0 key bytes leaked
-[PASS] known-classical-half break         0/512 guess-ss_p wraps opened (honest control: true)
-[PASS] replay across connections          own connection accepted: true, replayed on new connection: false
-[PASS] algorithm confusion                header-rewritten token accepted: false
-[PASS] length oracle                      0/6 malformed inputs accepted
-```
+It prints one line per attack with the count that must stay at zero — 145
+forgeries rejected, 0 of 512 guessed PQ halves opened, replay refused on a new
+connection, and no malformed input accepted.
 
 ## Quick start
 
-Requirements: `go ≥ 1.22`, `gcc`/`clang`, `make`. Optional: `python3`
+Requirements: `go ≥ 1.27` (for `crypto/mldsa`; older toolchains auto-download
+it via `GOTOOLCHAIN=auto`), `gcc`/`clang`, `make`. Optional: `python3`
 (independent vector checkers), `node` (site-core cross-check), `tectonic` or
 TeX Live (paper).
 
 ```bash
-# 1. C core — known-answer tests + structural checks (21 assertions)
+# 1. C core — known-answer tests + structural checks (20 assertions)
 cd csrc && make test
 
 # 2. C core — side-channel measurement harness (naive vs constant-time)
 cd csrc && make timing
 
-# 3. Go suite — 13 tests: proofs' claims, cgo bindings, timing regression
+# 3. Go suite — 17 tests: proofs' claims, FIPS sizes, cgo, timing regression
 go test ./...
 
 # 4. Interactive TUI demo (keys 1–8, a = run all animated, q = quit)
@@ -157,7 +160,7 @@ csrc/              constant-time C core (HMK-1): ct utils, SHA-256/HMAC,
                    self-test (make test), timing harness (make timing),
                    disassembly target (make asm)
 pkg/hybridoidc/    Alg 1–4 reference implementation (Go) + cgo bindings
-                   + 13 claim-mapped tests incl. timing regression
+                   + 17 claim-mapped tests incl. timing regression
 cmd/hmktui/        interactive terminal UI driving the full demo flow
 site/              static demo website (Vercel-ready)
 docs/              full formal security specification (Markdown)
@@ -186,6 +189,10 @@ Every claim in the paper has a named test; `go test -v` prints the mapping.
 
 ## Measured results (reference: x86-64, GCC 13, `-O2`)
 
+These are one illustrative reference run. The paper's tables and
+`artifacts/results.json` are generated by `make numbers` on whatever machine
+builds them, so they always match the code that produced them.
+
 Tag rejection latency vs. matching prefix — the classic short-circuit oracle
 (reference run; slope magnitude varies with machine state, monotonicity always
 holds):
@@ -208,33 +215,25 @@ mismatch@31 **8.58 µs** · wrong secret **8.57 µs** — spread **0.2 %**.
 | correct vs wrong secret | 1.06 | PASS |
 
 Worst |t| = **1.25 → no detectable timing leak**. `TestHMKUnwrapConstantTime`
-fails the suite if medians ever spread beyond 2×. (Fun fact: measuring the
-cases in *fixed* order falsely flagged |t| = 8.96 — that was thermal drift,
-not code; interleaving the stimulus, as real TVLA requires, fixed it.)
+fails the suite if medians ever spread beyond 2×.
 
-## Video storyboard (recommended ~3 min)
+## Recording notes
 
-1. **0:00–0:20** — Hook: "Post-quantum hybrids die by side channels. This
-   one is measured." Title card + track.
-2. **0:20–0:50** — Paper skim: Theorem 1, the two corollaries, the
-   weakest-link theorem, traceability table.
-3. **0:50–1:30** — `csrc`: `make test` (21 checks green) → explain the F_p
-   combiner + rank-512 matrix on screen → `make asm` (show straight-line
-   disassembly).
-4. **1:30–2:10** — `make timing`: point at the naive line climbing 2→22 ns
-   while HMK stays flat; then unwrap table flat across all four cases.
-5. **2:10–2:50** — TUI (`go run ./cmd/hmktui`, press `a`): keygen → wrap →
-   adversary flip → red rejection → JWT half-sig rejection → replay
-   rejection → timing verdict "FLAT".
-6. **2:50–3:10** — Website demo in the browser + `go test ./...` all green +
-   repo/paper link. End card.
+Six beats, ~3 min: hook ("post-quantum hybrids die by side channels, this one
+is measured") → paper skim (Thm 1, the two corollaries, weakest link) →
+`csrc`: `make test` then `make asm` → `make timing` (naive line climbing, HMK
+flat) → TUI `a` runs the full flow ending in a red tamper rejection → close on
+`go test ./...` green and the repo link.
 
 ## What this work does *not* claim
 
 No security if **both** halves break; EUF-CMA only (no SUF/one-more);
-components are idealized RO stand-ins with adjustable break flags — swapping
-in ML-KEM/ML-DSA changes no algorithm or proof but is not wired into a live
-OIDC provider here; the constant-time claim covers the C source as compiled
+the deployed halves are concrete FIPS 203/204 primitives (ML-KEM-768,
+ML-DSA-65) taken from the Go standard library, while the idealized
+random-oracle components remain available — and tested — so the reductions of
+Thm 1/Thm 2 can be exercised with a half switchably broken; the pipeline is
+not wired to a live third-party OIDC provider; the constant-time claim covers
+the C source as compiled
 by GCC/Clang `-O2` (control flow and memory access patterns), not
 formally verified assembly or EM/power analysis; the browser demo is
 visualization-grade, not constant-time.
@@ -248,4 +247,4 @@ visualization-grade, not constant-time.
 - [x] Rigorous side-channel testing — `make timing`, `TestHMKUnwrapConstantTime`
 - [x] Applicable environment — OIDC pipeline demo (TUI step 5) + channel-bound JWTs
 - [x] Visual aesthetic — TUI (`cmd/hmktui`) + website (`site/`, Vercel-ready)
-- [x] Video — *you record it*; shot-by-shot storyboard above
+- [x] Video — recorded
