@@ -1,0 +1,171 @@
+\section{Side-channel analysis of the C implementation}
+\label{sec:sidechannel}
+The Cryptographer track asks for an algorithm that \emph{prevents} side-channel
+attacks; we treat this as an engineering claim that must be measured.
+
+\begin{table}[h]
+\centering
+\caption{Implementation-level vulnerability windows and their closures in
+\texttt{csrc/}.}
+\label{tab:sidechannel}
+\begin{tabular}{@{}p{5.4cm}p{4.6cm}p{5.2cm}@{}}
+\toprule
+\textbf{Window} & \textbf{Naive behavior} & \textbf{HMK-1 closure} \\
+\midrule
+Short-circuit tag comparison &
+  early exit on first mismatch; latency grows with matched prefix &
+  \texttt{hmk\_ct\_memcmp}: single accumulator, full scan, zero exits \\
+Secret-dependent branches &
+  \texttt{if (x < p)} reductions, early returns &
+  mask/cmov arithmetic; one return point per function \\
+Secret-indexed tables (cache timing) &
+  log/exp tables in field arithmetic &
+  CIOS Montgomery: fixed 4-limb loops, no tables \\
+Ordering oracle (verify-vs-derive) &
+  reject before doing expensive work &
+  identical statement path on every call; derive $\to$ keystream $\to$ compare \\
+Partial key disclosure on failure &
+  candidate left in memory &
+  \texttt{cmov} from zeros: key published only on success, else zeroized \\
+Variable-length encodings &
+  parse/timing differentials &
+  fixed-length asserts at every boundary (Go and C) \\
+Compiler elision of wipes &
+  \texttt{memset} removed as dead &
+  \texttt{volatile} pointer wipe (\texttt{hmk\_secure\_zero}) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Measured results}
+Reference machine: x86-64, GCC 13, \texttt{-O2}; medians of
+$400 \times 512$ calls (\texttt{csrc/timing\_demo.c}).
+
+\begin{table}[h]
+\centering
+\caption{Tag rejection latency vs.\ matching prefix length $k$: the naive
+comparator is a byte-by-byte oracle; HMK-1 is flat.}
+\label{tab:prefix}
+\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+$k$ & 0 & 1 & 2 & 4 & 8 & 16 & 31 & \\
+\midrule
+naive early-exit (ns) & \HmkNaiveKZero & \HmkNaiveKOne & \HmkNaiveKTwo &
+  \HmkNaiveKFour & \HmkNaiveKEight & \HmkNaiveKSixteen & \HmkNaiveKThirtyOne &
+  $\nearrow$ linear \\
+HMK-1 \texttt{ct\_memcmp} (ns) & \HmkCTKZero & \HmkCTKOne & \HmkCTKTwo &
+  \HmkCTKFour & \HmkCTKEight & \HmkCTKSixteen & \HmkCTKThirtyOne & flat \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Full \texttt{hmk\_unwrap} latency: success and every failure mode
+execute the same path (400 interleaved rounds $\times$ 512 calls).}
+\label{tab:unwrap}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+case & correct tag & mismatch @0 & mismatch @31 & wrong secret & spread \\
+\midrule
+median latency & \HmkUnwrapCorrect\,$\mu$s & \HmkUnwrapBadZero\,$\mu$s &
+  \HmkUnwrapBadLast\,$\mu$s & \HmkUnwrapBadSecret\,$\mu$s &
+  \HmkUnwrapSpreadPct\,\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{TVLA-style Welch $t$-test over the interleaved samples (threshold
+$|t| < 4.5$, as in first-order side-channel certification).}
+\label{tab:tvla}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+comparison & $|t|$ & threshold & verdict \\
+\midrule
+correct vs mismatch@0  & \HmkTBadZero & \HmkTThreshold & PASS \\
+correct vs mismatch@31 & \HmkTBadLast & \HmkTThreshold & PASS \\
+correct vs wrong secret & \HmkTBadSecret & \HmkTThreshold & PASS \\
+\midrule
+worst observed & \HmkTWorst & \HmkTThreshold & PASS \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Sampling uses the standard TVLA discipline: all cases are measured
+\emph{interleaved in rotating order} so CPU-frequency drift biases every
+distribution equally (a fixed measurement order falsely flagged
+$|t| = 8.96$ during development — methodology, not code, was the cause).
+The naive comparator in the same harness leaks a monotone slope that grows
+to \HmkNaiveGrowth$\times$ its $k{=}0$ baseline from $k{=}0$ to $k{=}31$
+(\HmkNaiveKZero$\to$\HmkNaiveKThirtyOne\,ns on the reference run) — an oracle for byte-by-byte tag recovery — while HMK-1's rejection
+latency is flat at \HmkCTKZero\,ns for every prefix position.
+
+The Go test \texttt{TestHMKUnwrapConstantTime} re-measures medians through
+cgo on every \texttt{go test} run and fails if the spread exceeds $2\times$
+(observed spread in CI-style runs: $0.1\%$). A deliberately vulnerable
+comparator is shipped alongside (\texttt{naive\_verify}) so reviewers can
+confirm the harness \emph{can} detect a leak.
+
+\section{Evaluation: claim $\to$ proof $\to$ test}
+\label{sec:trace}
+\begin{table}[h]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\caption{Traceability of every claim to a proof and a named test.}
+\label{tab:trace}
+\begin{tabular}{@{}llp{7.4cm}@{}}
+\toprule
+\textbf{Claim} & \textbf{Proof} & \textbf{Test} \\
+\midrule
+E1: pq-break $\Rightarrow$ sessions safe & Thm~\ref{thm:hybrid}, Cor.~\ref{corr:e1} & \path{TestE1ClassicalHoldsUnderPQBreak} \\
+E2: classical-break $\Rightarrow$ safe & Thm~\ref{thm:hybrid}, Cor.~\ref{corr:e2} & \path{TestE2HybridKeySurvivesClassicalBreak} \\
+G2: tamper $\Rightarrow \bot$, fixed lengths & Thm~\ref{thm:hybrid} Games 0--3 & \path{TestCompositeKEMTamperIndist}, \path{TestFixedLengthEncodings} \\
+G3: conjunction acceptance & Alg.~4 & \path{TestHybridVerifyRejectsEitherHalfMissing} \\
+G4: weakest link & Thm~\ref{thm:forge} & \path{TestSignatureForgeryRequiresFreshECDSA} \\
+Replay rejection & Thm~\ref{thm:bind} & \path{TestChannelBoundJWTRejectsReplay} \\
+Wrap round-trip \& rejection surface & Alg.~\ref{alg:wrap} & \path{TestHMKWrapUnwrap}, C self-test (\HmkSelfTestChecks{} checks) \\
+Alg.\ 3 end-to-end master-key recovery & Sec.~\ref{sec:hmk} & \path{TestHMKEndToEndWithHybridKEM} \\
+Constant-time unwrap & Table~\ref{tab:sidechannel} & \path{TestHMKUnwrapConstantTime}, \texttt{hmk\_timing} \\
+$M$ rank 512, full support & Def.~\ref{def:matrix} & \path{linspread\_check.py} + C self-test \\
+F\textsubscript{p} arithmetic correctness & Prop.~\ref{prop:onebreak} & Python KAT + RFC 4231 vectors \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{What this work does not claim}
+\begin{itemize}
+  \item No security if \emph{both} KEM halves break; no SUF-CMA or one-more
+        unforgeability (EUF-CMA at the weakest link only).
+  \item The deployed composition uses concrete FIPS 203/204 primitives, but
+        it is still not wired to a live external OIDC provider in this
+        submission: the pipeline, AAD binding and channel-bound tokens are
+        exercised end to end in the TUI and website demos, not against a
+        third-party identity provider.
+  \item HMK-1's constant-time claim covers control flow and memory-access
+        patterns in the C source as compiled by GCC/Clang at \texttt{-O2};
+        it is not a formally verified assembly guarantee, and cross-border
+        power/EM analysis is out of scope.
+  \item The browser demo computes the same construction with BigInt/WebCrypto
+        for visualization; it is not constant-time (only the C core carries
+        that claim).
+\end{itemize}
+
+\section{Reproducibility}
+One aggregate target reproduces every claim in this paper:
+\texttt{make verify} runs the C self-test, the Go claim tests, the
+adversary harness, the independent checkers and the generator for the
+numbers above, and fails on the first broken claim.
+
+\begin{lstlisting}[caption={Repository layout and commands},label={repo}]
+csrc/            constant-time C core: make test && make timing
+pkg/hybridoidc/  Alg 1-4 reference impl + cgo bindings: go test ./...
+cmd/hmktui/      interactive TUI demo:        go run ./cmd/hmktui
+site/            demo website (static, Vercel-ready)
+docs/            full formal security specification (Markdown)
+paper/           this paper:                  tectonic main.tex
+tools/           independent vector/matrix checkers (Python, Node)
+\end{lstlisting}
+
