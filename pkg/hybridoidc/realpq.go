@@ -223,9 +223,9 @@ func ecdsaFromScalar(sk []byte) (*ecdsa.PrivateKey, error) {
 // --------------------------------------------------------------- ML-DSA Sig
 
 const (
-	mldsaVKLen  = mldsa.MLDSA65PublicKeySize  // 1952
-	mldsaSKLen  = mldsa.PrivateKeySize        // 32-byte seed
-	mldsaSigLen = mldsa.MLDSA65SignatureSize  // 3309
+	mldsaVKLen  = mldsa.MLDSA65PublicKeySize // 1952
+	mldsaSKLen  = mldsa.PrivateKeySize       // 32-byte seed
+	mldsaSigLen = mldsa.MLDSA65SignatureSize // 3309
 )
 
 // mldsaSig is ML-DSA-65 (FIPS 204). The private key is stored as the 32-byte
