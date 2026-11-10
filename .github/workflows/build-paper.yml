@@ -34,10 +34,7 @@ jobs:
           tar -xzf /tmp/tectonic.tar.gz -C /usr/local/bin tectonic
           tectonic --version
 
-      - name: Rebuild the build harness the paper measures
-        run: make -C csrc timing
-
-      - name: Regenerate measured numbers from that harness
+      - name: Regenerate measured numbers (this also builds the C harness)
         run: python3 tools/gen_results.py
 
       - name: Compile the paper

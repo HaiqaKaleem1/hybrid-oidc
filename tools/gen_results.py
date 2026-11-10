@@ -55,7 +55,10 @@ def run(cmd, cwd):
 
 
 def build_harness():
-    run(["make", "-s", "timing"], CSRC)
+    # `all` builds libhmk.a plus both binaries executed below. The `timing`
+    # target would build only hmk_timing and run it, leaving hmk_selftest
+    # missing on a fresh clone (which is how this failed in CI).
+    run(["make", "-s", "all"], CSRC)
 
 
 def parse_timing(out):
