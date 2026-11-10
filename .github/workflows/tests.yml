@@ -30,6 +30,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 tools/gen_vectors.py && python3 tools/linspread_check.py
+      - name: Cross-implementation known-answer vectors
+        run: make kat
       - name: Regenerated paper numbers
         run: make numbers
       - uses: actions/setup-node@v4
