@@ -80,7 +80,10 @@ func TestE2HybridKeySurvivesClassicalBreak(t *testing.T) {
 // decapsulation (conjunction = ⊥ if either half fails), and equal-length
 // fixed encodings hold (the timing/parser side-condition).
 func TestCompositeKEMTamperIndist(t *testing.T) {
-	h := NewDefaultHybridKEM()
+	// Idealized components: this test asserts rejection *inside* the KEM, which
+	// is where the multiplicative-reuse model puts it. A deployed ML-KEM uses
+	// implicit rejection instead; see TestProductionKEMTamperYieldsDifferentSecret.
+	h := NewIdealizedHybridKEM()
 	pk, sk, err := h.KgenH()
 	if err != nil {
 		t.Fatal(err)
@@ -115,7 +118,7 @@ func TestCompositeKEMTamperIndist(t *testing.T) {
 
 // G3 (Alg 4): acceptance requires BOTH halves; either half invalid ⇒ reject.
 func TestHybridVerifyRejectsEitherHalfMissing(t *testing.T) {
-	s := NewDefaultHybridSig()
+	s := NewIdealizedHybridSig()
 	vk, sk, err := s.SkgH()
 	if err != nil {
 		t.Fatal(err)
@@ -218,17 +221,22 @@ func TestChannelBoundJWTRejectsReplay(t *testing.T) {
 // Fixed-length enforcement (the timing/variable-length side-condition from
 // §1 that the IETF hybrid draft requires for the dual-PRF argument).
 func TestFixedLengthEncodings(t *testing.T) {
+	// Run on the deployed composition (ECDH P-256 + ML-KEM-768): the lengths
+	// that matter are the ones the wire actually carries.
 	h := NewDefaultHybridKEM()
-	pk, _, err := h.KgenH()
+	pk, sk, err := h.KgenH()
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(pk) != h.PublicKeyLen() || len(sk) != h.SecretKeyLen() {
+		t.Fatalf("hybrid pk/sk length drift: %d/%d", len(pk), len(sk))
 	}
 	for i := 0; i < 16; i++ {
 		_, ct, err := h.EncH(pk)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(ct) != 2*ctLen {
+		if len(ct) != h.CiphertextLen() {
 			t.Fatalf("ct length must be constant, got %d", len(ct))
 		}
 	}
@@ -243,8 +251,10 @@ func TestFixedLengthEncodings(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(sig) != 64 {
-			t.Fatalf("sig length must be constant, got %d", len(sig))
+		// ES256 encodes as fixed-width r‖s and ML-DSA-65 is fixed-length by
+		// construction, so a hybrid signature never varies in size.
+		if len(sig) != s.SignatureLen() {
+			t.Fatalf("sig length must be constant, got %d want %d", len(sig), s.SignatureLen())
 		}
 	}
 }
