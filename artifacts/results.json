@@ -31,7 +31,7 @@
       },
       "31": {
         "ct_ns": 1,
-        "naive_ns": 13
+        "naive_ns": 12
       },
       "4": {
         "ct_ns": 1,
@@ -42,18 +42,18 @@
         "naive_ns": 4
       }
     },
-    "spread_pct": 0.01,
+    "spread_pct": 0.02,
     "t": {
-      "wrong ss": 0.374,
-      "wrong tag (byte 0)": 0.261,
-      "wrong tag (byte 31)": 0.16
+      "wrong ss": 1.507,
+      "wrong tag (byte 0)": 0.787,
+      "wrong tag (byte 31)": 2.012
     },
-    "t_worst": 0.374,
+    "t_worst": 2.012,
     "unwrap_ns": {
-      "correct tag": 8208,
-      "wrong ss": 8209,
-      "wrong tag (byte 0)": 8208,
-      "wrong tag (byte 31)": 8209
+      "correct tag": 8190,
+      "wrong ss": 8189,
+      "wrong tag (byte 0)": 8189,
+      "wrong tag (byte 31)": 8188
     }
   }
 }
