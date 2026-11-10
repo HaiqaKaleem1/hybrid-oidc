@@ -10,11 +10,16 @@
 //	G4  (Thm 2 weakest link)-> TestSignatureForgeryRequiresFreshECDSA
 //	G1<->G3 binding (Thm 3) -> TestChannelBoundJWTRejectsReplay
 //
-// This is a teaching/reference implementation: the "classical" and "pq"
-// halves are realized as idealized RO components (with adjustable break
-// flags) so the reductions run to completion exactly as proven. Swapping a
-// component for ECDH P-256 + ECDSA/ES256 and ML-KEM/ML-DSA (or Kyber/Falcon
-// as in the paper's prototype) leaves the algorithms and proofs unchanged.
+// The deployed composition (see realpq.go) is ECDH P-256 + ML-KEM-768 for Alg 3
+// and ES256 + ML-DSA-65 for Alg 4, both from the Go standard library
+// (crypto/mlkem, FIPS 203; crypto/mldsa, FIPS 204) --- no third-party
+// cryptographic dependency.
+//
+// The idealized random-oracle components (roKEM, roSig) are retained and
+// exercised through the same hybrid code path, because the reductions need a
+// half that can be switched off: E1/E2 and G3/G4 are therefore runnable as
+// experiments rather than described in prose. Every component declares its
+// own byte sizes, so the hybrid layer is identical for both instantiations.
 package hybridoidc
 
 import (
@@ -54,6 +59,35 @@ type Sig interface {
 type roKEM struct{ broken bool }
 
 const ssLen, ctLen, pkLen, skLen = 32, 96, 48, 48
+
+// kemLayout describes the fixed byte sizes of one KEM component. The hybrid
+// layer derives every split point from these, so a component whose sizes
+// differ from the idealized stand-ins (ML-KEM-768: 1184/64/1088) drops in
+// with no change to the algorithms.
+type kemLayout struct{ pk, sk, ct, ss int }
+
+// sigLayout is the same idea for a signature component.
+type sigLayout struct{ vk, sk, sig int }
+
+// kemSizer / sigSizer are implemented by components that know their sizes.
+// Components that do not (the idealized stand-ins) fall back to the package
+// constants above.
+type kemSizer interface{ kemLayout() kemLayout }
+type sigSizer interface{ sigLayout() sigLayout }
+
+func kemSizes(k KEM) kemLayout {
+	if s, ok := k.(kemSizer); ok {
+		return s.kemLayout()
+	}
+	return kemLayout{pk: pkLen, sk: skLen, ct: ctLen, ss: ssLen}
+}
+
+func sigSizes(s Sig) sigLayout {
+	if z, ok := s.(sigSizer); ok {
+		return z.sigLayout()
+	}
+	return sigLayout{vk: 32, sk: 32, sig: 32}
+}
 
 func (r *roKEM) Kgen() ([]byte, []byte, error) {
 	pk := make([]byte, pkLen)
@@ -182,8 +216,15 @@ type HybridKEM struct {
 	PQ        KEM
 }
 
-// NewDefaultHybridKEM returns a sound (neither half broken) hybrid KEM.
+// NewDefaultHybridKEM returns the deployed composition: ECDH P-256 + ML-KEM-768
+// (FIPS 203), both from the standard library.
 func NewDefaultHybridKEM() *HybridKEM {
+	return NewProductionHybridKEM()
+}
+
+// NewIdealizedHybridKEM returns the random-oracle stand-ins used by the
+// reductions of Thm 1 / E1 / E2, where a half must be switchably broken.
+func NewIdealizedHybridKEM() *HybridKEM {
 	return &HybridKEM{Classical: &roKEM{}, PQ: &roKEM{}}
 }
 
@@ -202,14 +243,15 @@ func (h *HybridKEM) KgenH() (pkH, skH []byte, err error) {
 
 // EncH encapsulates to both halves and concatenates fixed-length cts.
 func (h *HybridKEM) EncH(pkH []byte) ([]byte, []byte, error) {
-	if len(pkH) != 2*pkLen {
+	lc, lp := kemSizes(h.Classical), kemSizes(h.PQ)
+	if len(pkH) != lc.pk+lp.pk {
 		return nil, nil, errors.New("bad hybrid pk length")
 	}
-	ssc, ctc, err := h.Classical.Enc(pkH[:pkLen])
+	ssc, ctc, err := h.Classical.Enc(pkH[:lc.pk])
 	if err != nil {
 		return nil, nil, err
 	}
-	ssp, ctp, err := h.PQ.Enc(pkH[pkLen:])
+	ssp, ctp, err := h.PQ.Enc(pkH[lc.pk:])
 	if err != nil {
 		return nil, nil, err
 	}
@@ -220,18 +262,37 @@ func (h *HybridKEM) EncH(pkH []byte) ([]byte, []byte, error) {
 
 // DecH decapsulates componentwise; ⊥ if either fails (Alg 3 conjunction).
 func (h *HybridKEM) DecH(skH, ctH []byte) ([]byte, error) {
-	if len(skH) != 2*skLen || len(ctH) != 2*ctLen {
+	lc, lp := kemSizes(h.Classical), kemSizes(h.PQ)
+	if len(skH) != lc.sk+lp.sk || len(ctH) != lc.ct+lp.ct {
 		return nil, errors.New("bad hybrid inputs")
 	}
-	ssc, err := h.Classical.Dec(skH[:skLen], ctH[:ctLen])
+	ssc, err := h.Classical.Dec(skH[:lc.sk], ctH[:lc.ct])
 	if err != nil {
 		return nil, err
 	}
-	ssp, err := h.PQ.Dec(skH[skLen:], ctH[ctLen:])
+	ssp, err := h.PQ.Dec(skH[lc.sk:], ctH[lc.ct:])
 	if err != nil {
 		return nil, err
 	}
 	return append(append([]byte{}, ssc...), ssp...), nil
+}
+
+// SecretLen is the fixed length of DecH's output for this composition.
+func (h *HybridKEM) SecretLen() int {
+	return kemSizes(h.Classical).ss + kemSizes(h.PQ).ss
+}
+
+// PublicKeyLen, SecretKeyLen and CiphertextLen report the hybrid encodings.
+func (h *HybridKEM) PublicKeyLen() int {
+	return kemSizes(h.Classical).pk + kemSizes(h.PQ).pk
+}
+
+func (h *HybridKEM) SecretKeyLen() int {
+	return kemSizes(h.Classical).sk + kemSizes(h.PQ).sk
+}
+
+func (h *HybridKEM) CiphertextLen() int {
+	return kemSizes(h.Classical).ct + kemSizes(h.PQ).ct
 }
 
 // ExtractKey binds the concatenated hybrid secret with a dual-PRF HKDF-style
@@ -240,6 +301,13 @@ func ExtractKey(ss []byte, salt, info []byte) []byte {
 	if len(ss) != 2*ssLen {
 		panic("hybrid secret must be fixed length")
 	}
+	return ExtractKeyN(ss, salt, info)
+}
+
+// ExtractKeyN is ExtractKey for a composition whose concatenated secret is
+// not the idealized 64 bytes (FIPS 203/204 both give 32, so this is 64 for
+// every composition shipped here, but the bound is now explicit).
+func ExtractKeyN(ss []byte, salt, info []byte) []byte {
 	m := hmac.New(sha256.New, salt)
 	m.Write(ss)
 	m.Write(info)
@@ -254,7 +322,15 @@ type HybridSig struct {
 	PQ        Sig
 }
 
+// NewDefaultHybridSig returns the deployed composition: ES256 + ML-DSA-65
+// (FIPS 204), both from the standard library.
 func NewDefaultHybridSig() *HybridSig {
+	return NewProductionHybridSig()
+}
+
+// NewIdealizedHybridSig returns the random-oracle stand-ins used by the
+// reductions of Thm 2 / G3 / G4, where a half must be switchably broken.
+func NewIdealizedHybridSig() *HybridSig {
 	return &HybridSig{Classical: &roSig{}, PQ: &roSig{}}
 }
 
@@ -271,27 +347,42 @@ func (s *HybridSig) SkgH() ([]byte, []byte, error) {
 }
 
 func (s *HybridSig) SignH(skH, msg []byte) ([]byte, error) {
-	if len(skH) != 2*32 {
+	lc, lp := sigSizes(s.Classical), sigSizes(s.PQ)
+	if len(skH) != lc.sk+lp.sk {
 		return nil, errors.New("bad hybrid sk")
 	}
-	sc, err := s.Classical.Sign(skH[:32], msg)
+	sc, err := s.Classical.Sign(skH[:lc.sk], msg)
 	if err != nil {
 		return nil, err
 	}
-	sp, err := s.PQ.Sign(skH[32:], msg)
+	sp, err := s.PQ.Sign(skH[lc.sk:], msg)
 	if err != nil {
 		return nil, err
 	}
 	return append(append([]byte{}, sc...), sp...), nil
 }
 
+// SignatureLen, VerifyKeyLen and SignKeyLen report the hybrid encodings.
+func (s *HybridSig) SignatureLen() int {
+	return sigSizes(s.Classical).sig + sigSizes(s.PQ).sig
+}
+
+func (s *HybridSig) VerifyKeyLen() int {
+	return sigSizes(s.Classical).vk + sigSizes(s.PQ).vk
+}
+
+func (s *HybridSig) SignKeyLen() int {
+	return sigSizes(s.Classical).sk + sigSizes(s.PQ).sk
+}
+
 // VerH requires BOTH halves valid on the same msg (Alg 4 conjunction = G3).
 func (s *HybridSig) VerH(vkH, msg, sigH []byte) bool {
-	if len(vkH) != 64 || len(sigH) != 2*32 {
+	lc, lp := sigSizes(s.Classical), sigSizes(s.PQ)
+	if len(vkH) != lc.vk+lp.vk || len(sigH) != lc.sig+lp.sig {
 		return false
 	}
-	return s.Classical.Ver(vkH[:32], msg, sigH[:32]) &&
-		s.PQ.Ver(vkH[32:], msg, sigH[32:])
+	return s.Classical.Ver(vkH[:lc.vk], msg, sigH[:lc.sig]) &&
+		s.PQ.Ver(vkH[lc.vk:], msg, sigH[lc.sig:])
 }
 
 // --------------------------------------------------------------------- JWT

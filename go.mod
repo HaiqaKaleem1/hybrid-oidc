@@ -1,6 +1,6 @@
 module hybridoidc
 
-go 1.22
+go 1.27
 
 require golang.org/x/term v0.28.0
 
