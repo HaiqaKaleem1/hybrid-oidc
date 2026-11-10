@@ -42,18 +42,18 @@
         "naive_ns": 4
       }
     },
-    "spread_pct": 0.11,
+    "spread_pct": 0.06,
     "t": {
-      "wrong ss": 0.254,
-      "wrong tag (byte 0)": 0.37,
-      "wrong tag (byte 31)": 0.953
+      "wrong ss": 1.095,
+      "wrong tag (byte 0)": 0.754,
+      "wrong tag (byte 31)": 1.642
     },
-    "t_worst": 0.953,
+    "t_worst": 1.642,
     "unwrap_ns": {
-      "correct tag": 8494,
-      "wrong ss": 8497,
-      "wrong tag (byte 0)": 8503,
-      "wrong tag (byte 31)": 8498
+      "correct tag": 8490,
+      "wrong ss": 8490,
+      "wrong tag (byte 0)": 8488,
+      "wrong tag (byte 31)": 8485
     }
   }
 }
