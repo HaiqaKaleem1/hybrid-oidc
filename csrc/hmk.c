@@ -12,6 +12,12 @@ static const uint8_t LAB_RK[]  = "hmk/v1/rk";
 static const uint8_t LAB_KS[]  = "hmk/v1/ks";
 static const uint8_t LAB_TAG[] = "hmk/v1/tag";
 
+/* Label lengths are taken from the arrays themselves. A hard-coded 9 here was
+ * silently truncating the 10-byte tag label to "hmk/v1/ta", defeating the
+ * documented domain separation; deriving every length from sizeof() makes
+ * that class of drift a compile-time impossibility instead of a code review. */
+#define LAB_LEN(lab) (sizeof(lab) - 1)
+
 /* kek = HMAC(K_f, u || LAB_RK || 0x00), kmac = HMAC(K_f, u || LAB_RK || 0x01) */
 static void derive_keys(const uint8_t ss[HMK_SS_LEN],
                          uint8_t kek[HMK_HMAC_LEN],
@@ -26,20 +32,20 @@ static void derive_keys(const uint8_t ss[HMK_SS_LEN],
     hmk_linspread(u, ss);              /* F_2 linear diffusion        */
 
     memcpy(msg, u, 64);
-    memcpy(msg + 64, LAB_RK, sizeof(LAB_RK) - 1);
+    memcpy(msg + 64, LAB_RK, LAB_LEN(LAB_RK));
 
     /* two fixed HMAC computations, byte counter is a loop index (public) */
     {
         uint8_t ctr;
         ctr = 0x00;
         hmk_hmac_init(&ctx, kf, sizeof(kf));
-        hmk_hmac_update(&ctx, msg, 64 + sizeof(LAB_RK) - 1);
+        hmk_hmac_update(&ctx, msg, 64 + LAB_LEN(LAB_RK));
         hmk_hmac_update(&ctx, &ctr, 1);
         hmk_hmac_final(&ctx, kek);
 
         ctr = 0x01;
         hmk_hmac_init(&ctx, kf, sizeof(kf));
-        hmk_hmac_update(&ctx, msg, 64 + sizeof(LAB_RK) - 1);
+        hmk_hmac_update(&ctx, msg, 64 + LAB_LEN(LAB_RK));
         hmk_hmac_update(&ctx, &ctr, 1);
         hmk_hmac_final(&ctx, kmac);
     }
@@ -70,10 +76,10 @@ int hmk_wrap(const uint8_t ss[HMK_SS_LEN],
 
     /* keystream: KS = HMAC(kek, LAB_KS || nonce) — one fixed block */
     {
-        uint8_t ksm[9 + HMK_NONCE_LEN];
-        memcpy(ksm, LAB_KS, 9);
-        memcpy(ksm + 9, nonce, HMK_NONCE_LEN);
-        hmk_hmac(kek, HMK_HMAC_LEN, ksm, 9 + HMK_NONCE_LEN, ks);
+        uint8_t ksm[LAB_LEN(LAB_KS) + HMK_NONCE_LEN];
+        memcpy(ksm, LAB_KS, LAB_LEN(LAB_KS));
+        memcpy(ksm + LAB_LEN(LAB_KS), nonce, HMK_NONCE_LEN);
+        hmk_hmac(kek, HMK_HMAC_LEN, ksm, LAB_LEN(LAB_KS) + HMK_NONCE_LEN, ks);
         hmk_secure_zero(ksm, sizeof(ksm));
     }
 
@@ -82,9 +88,9 @@ int hmk_wrap(const uint8_t ss[HMK_SS_LEN],
 
     /* tag = HMAC(kmac, LAB_TAG || nonce || ct || aad) */
     {
-        uint8_t th[32 + HMK_NONCE_LEN + HMK_CT_LEN];
+        uint8_t th[LAB_LEN(LAB_TAG) + HMK_NONCE_LEN + HMK_CT_LEN];
         size_t off = 0;
-        memcpy(th + off, LAB_TAG, 9); off += 9;
+        memcpy(th + off, LAB_TAG, LAB_LEN(LAB_TAG)); off += LAB_LEN(LAB_TAG);
         memcpy(th + off, nonce, HMK_NONCE_LEN); off += HMK_NONCE_LEN;
         memcpy(th + off, ct, HMK_CT_LEN); off += HMK_CT_LEN;
         hmk_hmac_init(&ctx, kmac, HMK_HMAC_LEN);
@@ -122,10 +128,10 @@ int hmk_unwrap(const uint8_t ss[HMK_SS_LEN],
     derive_keys(ss, kek, kmac);
 
     {
-        uint8_t ksm[9 + HMK_NONCE_LEN];
-        memcpy(ksm, LAB_KS, 9);
-        memcpy(ksm + 9, nonce, HMK_NONCE_LEN);
-        hmk_hmac(kek, HMK_HMAC_LEN, ksm, 9 + HMK_NONCE_LEN, ks);
+        uint8_t ksm[LAB_LEN(LAB_KS) + HMK_NONCE_LEN];
+        memcpy(ksm, LAB_KS, LAB_LEN(LAB_KS));
+        memcpy(ksm + LAB_LEN(LAB_KS), nonce, HMK_NONCE_LEN);
+        hmk_hmac(kek, HMK_HMAC_LEN, ksm, LAB_LEN(LAB_KS) + HMK_NONCE_LEN, ks);
         hmk_secure_zero(ksm, sizeof(ksm));
     }
 
@@ -133,9 +139,9 @@ int hmk_unwrap(const uint8_t ss[HMK_SS_LEN],
         cand[i] = (uint8_t)(ct[i] ^ ks[i]);
 
     {
-        uint8_t th[32 + HMK_NONCE_LEN + HMK_CT_LEN];
+        uint8_t th[LAB_LEN(LAB_TAG) + HMK_NONCE_LEN + HMK_CT_LEN];
         size_t off = 0;
-        memcpy(th + off, LAB_TAG, 9); off += 9;
+        memcpy(th + off, LAB_TAG, LAB_LEN(LAB_TAG)); off += LAB_LEN(LAB_TAG);
         memcpy(th + off, nonce, HMK_NONCE_LEN); off += HMK_NONCE_LEN;
         memcpy(th + off, ct, HMK_CT_LEN); off += HMK_CT_LEN;
         hmk_hmac_init(&ctx, kmac, HMK_HMAC_LEN);
