@@ -1,0 +1,59 @@
+{
+  "generated_by": "tools/gen_results.py",
+  "linspread": {
+    "min_bytes_changed": 17,
+    "rank": 512,
+    "rank_required": 512,
+    "word_bytes": 64
+  },
+  "machine": {
+    "machine": "x86_64",
+    "platform": "Linux-6.1.102-x86_64-with-glibc2.39"
+  },
+  "selftest_checks": 20,
+  "timing": {
+    "prefix": {
+      "0": {
+        "ct_ns": 1,
+        "naive_ns": 2
+      },
+      "1": {
+        "ct_ns": 1,
+        "naive_ns": 2
+      },
+      "16": {
+        "ct_ns": 1,
+        "naive_ns": 7
+      },
+      "2": {
+        "ct_ns": 1,
+        "naive_ns": 2
+      },
+      "31": {
+        "ct_ns": 1,
+        "naive_ns": 12
+      },
+      "4": {
+        "ct_ns": 1,
+        "naive_ns": 3
+      },
+      "8": {
+        "ct_ns": 1,
+        "naive_ns": 4
+      }
+    },
+    "spread_pct": 0.11,
+    "t": {
+      "wrong ss": 0.254,
+      "wrong tag (byte 0)": 0.37,
+      "wrong tag (byte 31)": 0.953
+    },
+    "t_worst": 0.953,
+    "unwrap_ns": {
+      "correct tag": 8494,
+      "wrong ss": 8497,
+      "wrong tag (byte 0)": 8503,
+      "wrong tag (byte 31)": 8498
+    }
+  }
+}
