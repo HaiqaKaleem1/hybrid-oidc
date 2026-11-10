@@ -1,0 +1,72 @@
+{
+  "construction": "HMK-1",
+  "generated_by": "reference/hmk_ref.py (independent of csrc/)",
+  "field": "p = 2^256 - 2^32 + 977",
+  "labels": {
+    "rk": "hmk/v1/rk",
+    "ks": "hmk/v1/ks",
+    "tag": "hmk/v1/tag"
+  },
+  "vectors": [
+    {
+      "name": "all-zero inputs",
+      "note": "degenerate: both field operands normalise to 1, so kf is a constant",
+      "ss": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "nonce": "00000000000000000000000000000000",
+      "mk": "0000000000000000000000000000000000000000000000000000000000000000",
+      "aad": "",
+      "ct": "3da564fd236f725f18d96dfb34cef5ec72f255a8ac3601dce78946fd8772e458",
+      "tag": "38eff0b45a5ddd33b612a668503648b7fa155c3bab914ce12ca63c87a0306d46"
+    },
+    {
+      "name": "counting bytes",
+      "note": "the reference self-test vector",
+      "ss": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      "nonce": "000102030405060708090a0b0c0d0e0f",
+      "mk": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "aad": "",
+      "ct": "ddb0382b14a7a9476efe111b20af53539881cb6630643d650b83bf24e9ff577c",
+      "tag": "36c4b2a662c0e73a9233127bfeea9b83de59111b7d28e9ca54323f4a9f59cc35"
+    },
+    {
+      "name": "oidc context binding",
+      "note": "relying-party identity in the AAD, as the demo wraps it",
+      "ss": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      "nonce": "000102030405060708090a0b0c0d0e0f",
+      "mk": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "aad": "72703d68747470733a2f2f6964702e6578616d706c653b7375623d616c6963653b6175643d6879627269642d6f6964633b763d31",
+      "ct": "ddb0382b14a7a9476efe111b20af53539881cb6630643d650b83bf24e9ff577c",
+      "tag": "6ba0cb8736c9d2c5323fb77ef733416547725c29725849dc362fb0e7eab00675"
+    },
+    {
+      "name": "zero left half",
+      "note": "exercises nonzero normalisation of one field operand",
+      "ss": "0000000000000000000000000000000000000000000000000000000000000000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce": "000102030405060708090a0b0c0d0e0f",
+      "mk": "0000000000000000000000000000000000000000000000000000000000000001",
+      "aad": "637478",
+      "ct": "6d8b712f3236548954eee0d9b78fc25cbae97efcc571900f0db65d9fd3601054",
+      "tag": "267902198692349c7f3731571772be20c5be81e3f1c672b204de4498e7a4ada2"
+    },
+    {
+      "name": "high-bit limbs",
+      "note": "operands above p before reduction (reduce-then-normalise path)",
+      "ss": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f",
+      "nonce": "ffffffffffffffffffffffffffffffff",
+      "mk": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "aad": "",
+      "ct": "68f8f240f8e11391475e3ab4e0be0916ba3bc3ce543e4a71889a448c2f64242f",
+      "tag": "da53c481c6c9262c84209045c33d75d176354d5b0f2947eebab9c5067f0d0eb3"
+    },
+    {
+      "name": "empty aad with long nonce pattern",
+      "note": "aad is optional; empty must not change the tag domain",
+      "ss": "0b30557a9fc4e90e33587da2c7ec11365b80a5caef14395e83a8cdf2173c6186abd0f51a3f6489aed3f81d42678cb1d6fb20456a8fb4d9fe23486d92b7dc0126",
+      "nonce": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      "mk": "076cd1369b0065ca2f94f95ec3288df257bc2186eb50b51a7fe449ae1378dd42",
+      "aad": "",
+      "ct": "6a438eb252988e617ac6e03d1e3d3085f5cb6b926c051efa77b1112ba93c1911",
+      "tag": "7ff9b0d25f48b704ba57c0061d71178cfc75c0f85bdf8b2e4bd58f7c22950539"
+    }
+  ]
+}
