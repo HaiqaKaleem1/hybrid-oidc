@@ -73,6 +73,36 @@ and is hardened against side channels **by measurement, not assertion**.
 | **Bonus** — applicable environment | +1 | OIDC pipeline (Alg 3 → wrap → decap → unwrap, TUI step 5) + channel-bound hybrid JWTs |
 | **Bonus** — visual aesthetic | +1 | Animated TUI (`cmd/hmktui`) + this site with the full live in-browser demo |
 
+## Verify every claim in one command
+
+```bash
+make verify
+```
+
+That target runs the whole evidence chain in the order CI runs it: the C
+known-answer self-test, the full Go claim suite, the adversary harness in
+`attacks/`, and the three independent checkers (Python vectors, Python
+matrix-rank check, Node site-core cross-check against the C core). It exits
+non-zero on the first broken claim, so a judge never has to take a number on
+trust.
+
+The adversary harness is the part that is worth reading before the paper:
+five concrete attacks that *work* against textbook designs — single-bit
+forgery on every input surface, a known classical half after a break, JWT
+replay across TLS connections, header rewriting, and malformed-length
+probes — each of which must fail here, with no key material released.
+
+```
+$ go run ./attacks
+HMK-1 adversary harness
+=======================
+[PASS] tamper-forgery (W5)                0/145 forgeries accepted, 0 key bytes leaked
+[PASS] known-classical-half break         0/512 guess-ss_p wraps opened (honest control: true)
+[PASS] replay across connections          own connection accepted: true, replayed on new connection: false
+[PASS] algorithm confusion                header-rewritten token accepted: false
+[PASS] length oracle                      0/6 malformed inputs accepted
+```
+
 ## Quick start
 
 Requirements: `go ≥ 1.22`, `gcc`/`clang`, `make`. Optional: `python3`
