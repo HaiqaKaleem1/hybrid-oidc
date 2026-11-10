@@ -37,13 +37,14 @@ and is hardened against side channels **by measurement, not assertion**.
 |---|---|---|
 | **Record-now-decrypt-later / quantum break of one primitive** | composite-hybrid secret: break *either* half, traffic still safe | Thm 1, Cor E1/E2 (`TestE1*`, `TestE2*`) |
 | **Active MITM tampering with ciphertexts** | conjunction decapsulation: ⊥ if any half or bound field fails | Games 0–3 (`TestCompositeKEMTamperIndist`) |
-| **Timing leak in key/tag comparison** | `hmk_ct_memcmp`: full scan, single accumulator, **zero early exits** | naive comparator leaks 2→22 ns with prefix length; HMK flat at 1 ns (`make timing`) |
+| **Timing leak in key/tag comparison** | `hmk_ct_memcmp`: full scan, single accumulator, **zero early exits** | naive comparator grows monotonically with prefix length; HMK flat (`make timing`) |
 | **Ordering oracle (reject before doing work)** | unwrap executes the identical instruction path on *every* call | unwrap spread < 2 % across success/failure/wrong-secret (`TestHMKUnwrapConstantTime`) |
 | **Secret-dependent branches & cache-timing tables** | CIOS Montgomery in fixed 4-limb loops; branchless reduction/normalization/cmov; no log/exp tables | `make asm` disassembly target + code audit (Table 8 of the paper) |
 | **Partial key left in memory on failure** | candidate key published by `cmov` from zeros; `volatile` wipe of all intermediates | `hmk_secure_zero` in every exit path |
 | **Token replay across connections (bearer theft)** | TLS-exporter channel binding joins the signed input | Thm 3 (`TestChannelBoundJWTRejectsReplay`) |
 | **Half-signature forgery / algorithm confusion** | conjunction acceptance; composite never stronger than weaker half | Thm 2 (`TestSignatureForgeryRequiresFreshECDSA`) |
 | **Variable-length parse/timing differentials** | fixed-length encodings asserted at every boundary | `TestFixedLengthEncodings` |
+| **Cross-tenant replay of a sealed master key** | AAD binds the record to its OIDC context; tag verified before any key bytes are released | Thm (context binding), `TestNonceReuseIsDetectableAcrossContexts` |
 
 ### Extra-point checklist
 - **Low-level language:** the master-key encryption core is **C** (`csrc/`,
@@ -69,9 +70,9 @@ and is hardened against side channels **by measurement, not assertion**.
 
 | Rubric criterion | Weight | Evidence in this repo |
 |---|---|---|
-| Survives rigorous cryptanalysis | 3 pts | Complete hybrid-argument proofs (Thm 1, Games 0–3), weakest-link EUF bound (Thm 2), channel-binding corollary (Thm 3) · 17 claim-mapped Go tests · 20 C KATs · **TVLA Welch \|t\| ≈ 1.2 < 4.5** |
+| Survives rigorous cryptanalysis | 3 pts | Complete hybrid-argument proofs (Thm 1, Games 0–3), weakest-link EUF bound (Thm 2), channel-binding corollary (Thm 3), sealing game with PRF reduction, nonce-reuse proposition, own-implementation cryptanalysis · 20 claim-mapped Go tests · 20 C KATs · 6 cross-implementation KAT vectors (C ≡ independent Python reference) · **TVLA Welch \|t\| < 4.5** |
 | Uniqueness — no pre-existing algorithm | 2 pts | Novel HMK composition: F<sub>p</sub> field-product combiner (bijection one-break proof) → rank-512 F<sub>2</sub> mixer → HMAC extractor. **No AES/ChaCha/RSA ever touches plaintext.** |
-| Minimizes attack surface | 3 pts | Timing: flat, worst \|t\| 1.25, with a naive oracle shown *leaking in the same harness* · tamper/strip/graft/replay rejected live (site steps 4–7, TUI) · memory: branchless cmov + volatile zeroize · lengths: fixed everywhere |
+| Minimizes attack surface | 3 pts | Timing: flat, worst \|t\| well under threshold, with a naive oracle shown *leaking in the same harness* · tamper/strip/graft/replay rejected live (site steps 4–7, TUI) · memory: branchless cmov + volatile zeroize · lengths: fixed everywhere |
 | Clean LaTeX formatting | 2 pts | `paper/main.pdf` — numbered algorithms, theorem/proof blocks, booktabs tables, traceability matrix, compiled with `./build.sh` |
 | **Bonus** — low-level language | +1 | Constant-time **C** core, gcc -O2, `make asm` for disassembly inspection |
 | **Bonus** — applicable environment | +1 | OIDC pipeline (Alg 3 → wrap → decap → unwrap, TUI step 5) + channel-bound hybrid JWTs |
@@ -85,10 +86,11 @@ make verify
 
 That target runs the whole evidence chain in the order CI runs it: the C
 known-answer self-test, the full Go claim suite, the adversary harness in
-`attacks/`, and the three independent checkers (Python vectors, Python
-matrix-rank check, Node site-core cross-check against the C core) and finally
-regenerates the paper's measured numbers. It exits non-zero on the first broken
-claim, so a judge never has to take a number on trust.
+`attacks/`, the three independent checkers (Python vectors, Python
+matrix-rank check, Node site-core cross-check against the C core), the
+cross-implementation known-answer vectors, and finally regenerates the paper's
+measured numbers. It exits non-zero on the first broken claim, so a judge never
+has to take a number on trust.
 
 No figure in the paper is hand-typed: `make numbers` writes
 `artifacts/results.json` and `paper/generated/numbers.tex`, which `main.tex`
@@ -119,7 +121,8 @@ cd csrc && make test
 # 2. C core — side-channel measurement harness (naive vs constant-time)
 cd csrc && make timing
 
-# 3. Go suite — 17 tests: proofs' claims, FIPS sizes, cgo, timing regression
+# 3. Go suite — 20 tests: proofs' claims, FIPS sizes, cgo, timing regression,
+#    and the C core against vectors from the independent Python reference
 go test ./...
 
 # 4. Interactive TUI demo (keys 1–8, a = run all animated, q = quit)
@@ -128,6 +131,10 @@ go run ./cmd/hmktui
 # 5. Independent checkers (vectors & matrix rank against C/Python/JS)
 python3 tools/gen_vectors.py && python3 tools/linspread_check.py
 node tools/check_site_core.js
+
+# 5b. Cross-implementation KAT: the C core must reproduce, byte for byte,
+#     the wrap implemented independently in reference/hmk_ref.py
+make kat
 
 # 6. The paper
 cd paper && ./build.sh        # tectonic or latexmk → main.pdf
@@ -160,7 +167,11 @@ csrc/              constant-time C core (HMK-1): ct utils, SHA-256/HMAC,
                    self-test (make test), timing harness (make timing),
                    disassembly target (make asm)
 pkg/hybridoidc/    Alg 1–4 reference implementation (Go) + cgo bindings
-                   + 17 claim-mapped tests incl. timing regression
+                   + 20 claim-mapped tests incl. timing regression and the
+                   cross-implementation KAT against reference/hmk_ref.py
+reference/         independent Python implementation of the wrap (no shared
+                   code with csrc/); source of kat/hmk_vectors.json
+kat/               known-answer vectors, 6 cases, committed from the reference
 cmd/hmktui/        interactive terminal UI driving the full demo flow
 site/              static demo website (Vercel-ready)
 docs/              full formal security specification (Markdown)
@@ -182,6 +193,10 @@ Every claim in the paper has a named test; `go test -v` prints the mapping.
 | G4: weakest link = ES256 | Thm 2 | `TestSignatureForgeryRequiresFreshECDSA` |
 | Replay rejection | Thm 3 | `TestChannelBoundJWTRejectsReplay` |
 | Wrap round-trip & full rejection surface | Alg (HMK-1) | `TestHMKWrapUnwrap` + C self-test |
+| Wrap IND/CTXT bounds | Thm (sealing) | `TestCOREAgreesWithReference` + tamper vectors |
+| Cross-context replay rejected | Thm (context binding) | `TestNonceReuseIsDetectableAcrossContexts` |
+| Nonce reuse leaks XOR of keys (documented) | Prop (nonce reuse) | `TestNonceReuseIsDetectableAcrossContexts` |
+| C core ≡ independent Python reference | Sec. (own cryptanalysis) | `make kat` (6 vectors, byte-identical ct and tag) |
 | End-to-end master-key recovery | Sec. (HMK-1) | `TestHMKEndToEndWithHybridKEM` |
 | Constant-time unwrap | mitigation table | `TestHMKUnwrapConstantTime` + `make timing` |
 | M rank 512, full support | Def. (mixer) | `tools/linspread_check.py` + C self-test |
@@ -193,37 +208,14 @@ These are one illustrative reference run. The paper's tables and
 `artifacts/results.json` are generated by `make numbers` on whatever machine
 builds them, so they always match the code that produced them.
 
-Tag rejection latency vs. matching prefix — the classic short-circuit oracle
-(reference run; slope magnitude varies with machine state, monotonicity always
-holds):
-
-| prefix k | 0 | 1 | 2 | 4 | 8 | 16 | 31 |
-|---|---|---|---|---|---|---|---|
-| naive early-exit | 2 ns | 2 ns | 3 ns | 4 ns | 7 ns | 12 ns | **22 ns ↗** |
-| HMK-1 `ct_memcmp` | 1 ns | 1 ns | 1 ns | 1 ns | 1 ns | 1 ns | **1 ns =** |
-
-Full `hmk_unwrap` (medians of **400 interleaved rounds × 512 calls**, rotating
-case order per TVLA discipline): correct **8.57 µs** · mismatch@0 **8.57 µs** ·
-mismatch@31 **8.58 µs** · wrong secret **8.57 µs** — spread **0.2 %**.
-
-**TVLA-style Welch *t*-test** (correct vs each failure, threshold |t| < 4.5):
-
-| comparison | \|t\| | verdict |
-|---|---|---|
-| correct vs mismatch@0 | 1.25 | PASS |
-| correct vs mismatch@31 | 0.53 | PASS |
-| correct vs wrong secret | 1.06 | PASS |
-
-Worst |t| = **1.25 → no detectable timing leak**. `TestHMKUnwrapConstantTime`
-fails the suite if medians ever spread beyond 2×.
-
-## Recording notes
-
-Six beats, ~3 min: hook ("post-quantum hybrids die by side channels, this one
-is measured") → paper skim (Thm 1, the two corollaries, weakest link) →
-`csrc`: `make test` then `make asm` → `make timing` (naive line climbing, HMK
-flat) → TUI `a` runs the full flow ending in a red tamper rejection → close on
-`go test ./...` green and the repo link.
+The signatures of constant-time behaviour are: tag rejection latency flat
+across matching prefix positions where the naive comparator grows monotonically
+(a byte-by-byte oracle), and unwrap medians within a fraction of a percent
+across success and every failure mode. The `make timing` harness prints both
+sides of that comparison, naive and constant-time, in one run; the paper's
+tables and `artifacts/results.json` carry the numbers from whichever machine
+built them. `TestHMKUnwrapConstantTime` fails the suite if those medians ever
+spread beyond 2×.
 
 ## What this work does *not* claim
 
@@ -236,7 +228,11 @@ not wired to a live third-party OIDC provider; the constant-time claim covers
 the C source as compiled
 by GCC/Clang `-O2` (control flow and memory access patterns), not
 formally verified assembly or EM/power analysis; the browser demo is
-visualization-grade, not constant-time.
+visualization-grade, not constant-time; nonce freshness is a caller obligation
+and the library cannot detect reuse without keeping state; HMK-1 seals a key
+and does not split one, so it is not a threshold or split-state custody scheme;
+and the sealing reductions treat HMAC-SHA256 as a PRF rather than proving the
+construction in the random-oracle model.
 
 ## Submission checklist
 
@@ -247,4 +243,3 @@ visualization-grade, not constant-time.
 - [x] Rigorous side-channel testing — `make timing`, `TestHMKUnwrapConstantTime`
 - [x] Applicable environment — OIDC pipeline demo (TUI step 5) + channel-bound JWTs
 - [x] Visual aesthetic — TUI (`cmd/hmktui`) + website (`site/`, Vercel-ready)
-- [x] Video — recorded
