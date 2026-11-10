@@ -21,6 +21,8 @@ jobs:
         with:
           go-version: '1.22'
       - run: go test -count=1 ./...
+      - name: Adversary harness
+        run: go run ./attacks
 
   independent-checkers:
     runs-on: ubuntu-latest
